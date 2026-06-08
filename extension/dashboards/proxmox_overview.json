@@ -1,0 +1,335 @@
+{
+  "version": 15,
+  "defaultTimeframe": {
+    "from": "now-2h",
+    "to": "now"
+  },
+  "variables": [
+    {
+      "key": "cluster_name",
+      "displayName": "Cluster",
+      "type": "QUERY",
+      "definition": {
+        "seriesResolution": "AUTO",
+        "queryDefinition": {
+          "type": "METRIC",
+          "metric": "custom.proxmox.cluster.nodes.total",
+          "dimensionKey": "cluster_name"
+        }
+      }
+    },
+    {
+      "key": "node_name",
+      "displayName": "Node",
+      "type": "QUERY",
+      "definition": {
+        "seriesResolution": "AUTO",
+        "queryDefinition": {
+          "type": "METRIC",
+          "metric": "custom.proxmox.node.cpu.usage",
+          "dimensionKey": "node_name"
+        }
+      }
+    }
+  ],
+  "tiles": {
+    "0": {
+      "type": "markdown",
+      "title": "",
+      "content": "## Proxmox VE — Cluster Overview\nCluster: **$cluster_name**"
+    },
+    "1": {
+      "type": "data",
+      "title": "Nodes Online",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.cluster.nodes.online:filter(eq(cluster_name,$cluster_name)):last",
+        "visualization": {
+          "type": "singleValue",
+          "singleValueConfig": {
+            "showTrend": false,
+            "showSparkLine": false
+          }
+        }
+      }
+    },
+    "2": {
+      "type": "data",
+      "title": "Nodes Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.cluster.nodes.total:filter(eq(cluster_name,$cluster_name)):last",
+        "visualization": {
+          "type": "singleValue",
+          "singleValueConfig": {
+            "showTrend": false,
+            "showSparkLine": false
+          }
+        }
+      }
+    },
+    "3": {
+      "type": "data",
+      "title": "Node CPU Usage (%)",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.cpu.usage:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "4": {
+      "type": "data",
+      "title": "Node Memory Used",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.memory.used:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "5": {
+      "type": "data",
+      "title": "Node Memory Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.memory.total:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "6": {
+      "type": "data",
+      "title": "Node Disk Used vs Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.disk.used:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last,custom.proxmox.node.disk.total:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "7": {
+      "type": "data",
+      "title": "Node Network In",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.network.in:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "8": {
+      "type": "data",
+      "title": "Node Network Out",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.network.out:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "9": {
+      "type": "markdown",
+      "title": "",
+      "content": "## Virtual Machines (QEMU)"
+    },
+    "10": {
+      "type": "data",
+      "title": "VM CPU Usage (%)",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.cpu.usage:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "11": {
+      "type": "data",
+      "title": "VM Memory Used",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.memory.used:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "12": {
+      "type": "data",
+      "title": "VM Memory Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.memory.total:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "13": {
+      "type": "data",
+      "title": "VM Disk Read",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.disk.read:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "14": {
+      "type": "data",
+      "title": "VM Disk Write",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.disk.write:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "15": {
+      "type": "data",
+      "title": "VM Network In",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.network.in:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "16": {
+      "type": "data",
+      "title": "VM Network Out",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.network.out:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "17": {
+      "type": "markdown",
+      "title": "",
+      "content": "## LXC Containers"
+    },
+    "18": {
+      "type": "data",
+      "title": "LXC CPU Usage (%)",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.cpu.usage:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "19": {
+      "type": "data",
+      "title": "LXC Memory Used",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.memory.used:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "20": {
+      "type": "data",
+      "title": "LXC Memory Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.memory.total:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "21": {
+      "type": "data",
+      "title": "LXC Disk Read",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.disk.read:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "22": {
+      "type": "data",
+      "title": "LXC Disk Write",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.disk.write:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "23": {
+      "type": "data",
+      "title": "LXC Network In",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.network.in:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "24": {
+      "type": "data",
+      "title": "LXC Network Out",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.lxc.network.out:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
+        "visualization": {
+          "type": "lineChart"
+        }
+      }
+    },
+    "25": {
+      "type": "markdown",
+      "title": "",
+      "content": "## Storage"
+    },
+    "26": {
+      "type": "data",
+      "title": "Storage Used vs Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.storage.used:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last,custom.proxmox.storage.total:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "27": {
+      "type": "data",
+      "title": "Storage Utilization (%)",
+      "queryConfig": {
+        "metricSelector": "(custom.proxmox.storage.used:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name) / custom.proxmox.storage.total:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name)) * 100",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    }
+  },
+  "layouts": {
+    "0": { "x": 0, "y": 0, "w": 24, "h": 2 },
+    "1": { "x": 0, "y": 2, "w": 6, "h": 3 },
+    "2": { "x": 6, "y": 2, "w": 6, "h": 3 },
+    "3": { "x": 0, "y": 5, "w": 12, "h": 4 },
+    "4": { "x": 12, "y": 5, "w": 12, "h": 4 },
+    "5": { "x": 0, "y": 9, "w": 12, "h": 4 },
+    "6": { "x": 12, "y": 9, "w": 12, "h": 4 },
+    "7": { "x": 0, "y": 13, "w": 12, "h": 4 },
+    "8": { "x": 12, "y": 13, "w": 12, "h": 4 },
+    "9": { "x": 0, "y": 17, "w": 24, "h": 2 },
+    "10": { "x": 0, "y": 19, "w": 8, "h": 4 },
+    "11": { "x": 8, "y": 19, "w": 8, "h": 4 },
+    "12": { "x": 16, "y": 19, "w": 8, "h": 4 },
+    "13": { "x": 0, "y": 23, "w": 6, "h": 4 },
+    "14": { "x": 6, "y": 23, "w": 6, "h": 4 },
+    "15": { "x": 12, "y": 23, "w": 6, "h": 4 },
+    "16": { "x": 18, "y": 23, "w": 6, "h": 4 },
+    "17": { "x": 0, "y": 27, "w": 24, "h": 2 },
+    "18": { "x": 0, "y": 29, "w": 8, "h": 4 },
+    "19": { "x": 8, "y": 29, "w": 8, "h": 4 },
+    "20": { "x": 16, "y": 29, "w": 8, "h": 4 },
+    "21": { "x": 0, "y": 33, "w": 6, "h": 4 },
+    "22": { "x": 6, "y": 33, "w": 6, "h": 4 },
+    "23": { "x": 12, "y": 33, "w": 6, "h": 4 },
+    "24": { "x": 18, "y": 33, "w": 6, "h": 4 },
+    "25": { "x": 0, "y": 37, "w": 24, "h": 2 },
+    "26": { "x": 0, "y": 39, "w": 12, "h": 5 },
+    "27": { "x": 12, "y": 39, "w": 12, "h": 5 }
+  }
+}
