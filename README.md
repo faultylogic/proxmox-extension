@@ -134,6 +134,20 @@ PATH="$PWD/.venv/bin:$PATH" .venv/bin/dt-sdk gencerts
 
 This writes a CA and developer certificate to `~/.dynatrace/certificates/`.
 
+> **Bug workaround — key/cert order in `developer.pem`**
+> There is a known bug in Dynatrace ActiveGate certificate validation where the signature check fails if the certificate appears before the private key in the PEM file. `dt-sdk gencerts` produces the wrong order. After generating, rewrite the file with the key first:
+>
+> ```bash
+> # Extract key and cert blocks then rejoin key-first
+> KEY=$(awk '/-----BEGIN/,/-----END/' ~/.dynatrace/certificates/developer.pem | \
+>   awk 'BEGIN{found=0} /BEGIN.*KEY/{found=1} found{print} /END.*KEY/{found=0}')
+> CERT=$(awk '/-----BEGIN/,/-----END/' ~/.dynatrace/certificates/developer.pem | \
+>   awk 'BEGIN{found=0} /BEGIN CERTIFICATE/{found=1} found{print} /END CERTIFICATE/{found=0}')
+> printf "%s\n%s\n" "$KEY" "$CERT" > ~/.dynatrace/certificates/developer.pem
+> ```
+>
+> Rebuild after fixing the order — the signed zip embeds the certificate.
+
 ### 4. Build and sign
 
 ```bash
@@ -146,12 +160,24 @@ Output: `dist/custom_proxmox-1.0.0.zip`
 
 ## Deploy
 
-### 1. Upload the CA certificate to Dynatrace
+### 1. Install the developer certificate on the ActiveGate
 
-Before uploading the extension, Dynatrace needs to trust your signing certificate.
+The ActiveGate validates the extension signature against the `developer.pem` file. Copy it to the ActiveGate host:
 
-1. In your Dynatrace tenant go to **Settings → Extensions → Extension certificates**
-2. Upload `~/.dynatrace/certificates/ca.pem`
+```bash
+scp ~/.dynatrace/certificates/developer.pem user@<activegate-host>:/tmp/developer.pem
+```
+
+Then on the ActiveGate:
+
+```bash
+sudo mkdir -p /var/lib/dynatrace/remotepluginmodule/agent/conf/certificates
+sudo mv /tmp/developer.pem /var/lib/dynatrace/remotepluginmodule/agent/conf/certificates/developer.pem
+sudo chown dtuserag:dtuserag /var/lib/dynatrace/remotepluginmodule/agent/conf/certificates/developer.pem
+sudo systemctl restart dynatracegateway
+```
+
+> **Note:** The Dynatrace 3rd gen platform does not have an Extension certificates UI. The certificate must be placed directly on the ActiveGate. The user owning the Dynatrace files is `dtuserag` — verify with `ls -la /var/lib/dynatrace/remotepluginmodule/agent/conf/` if unsure.
 
 ### 2. Upload the extension
 
