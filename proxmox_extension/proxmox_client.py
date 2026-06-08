@@ -1,6 +1,6 @@
 import requests
 import urllib3
-from typing import Any
+from typing import Any, Dict, List
 
 
 class ProxmoxClient:
@@ -21,26 +21,26 @@ class ProxmoxClient:
         response.raise_for_status()
         return response.json().get("data", {})
 
-    def get_cluster_status(self) -> list[dict]:
+    def get_cluster_status(self) -> List[Dict]:
         return self._get("/cluster/status")
 
-    def get_nodes(self) -> list[dict]:
+    def get_nodes(self) -> List[Dict]:
         return self._get("/nodes")
 
     def get_node_status(self, node: str) -> dict:
         return self._get(f"/nodes/{node}/status")
 
-    def get_vms(self, node: str) -> list[dict]:
+    def get_vms(self, node: str) -> List[Dict]:
         return self._get(f"/nodes/{node}/qemu")
 
     def get_vm_status(self, node: str, vmid: int) -> dict:
         return self._get(f"/nodes/{node}/qemu/{vmid}/status/current")
 
-    def get_containers(self, node: str) -> list[dict]:
+    def get_containers(self, node: str) -> List[Dict]:
         return self._get(f"/nodes/{node}/lxc")
 
     def get_container_status(self, node: str, vmid: int) -> dict:
         return self._get(f"/nodes/{node}/lxc/{vmid}/status/current")
 
-    def get_storage(self, node: str) -> list[dict]:
+    def get_storage(self, node: str) -> List[Dict]:
         return self._get(f"/nodes/{node}/storage")

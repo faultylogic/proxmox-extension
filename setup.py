@@ -5,7 +5,7 @@ setup(
     version="1.0.0",
     description="Dynatrace Extension 2.0 for Proxmox VE",
     packages=find_packages(),
-    python_requires=">=3.10",
+    python_requires=">=3.9",
     install_requires=[
         "dt-extensions-sdk",
         "requests",
