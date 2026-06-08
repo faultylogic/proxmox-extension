@@ -151,10 +151,15 @@ This writes a CA and developer certificate to `~/.dynatrace/certificates/`.
 ### 4. Build and sign
 
 ```bash
-PATH="$PWD/.venv/bin:$PATH" .venv/bin/dt-sdk build
+PATH="$PWD/.venv/bin:$PATH" .venv/bin/dt-sdk build \
+  --extra-platform linux_x86_64 \
+  --only-extra-platforms \
+  --python-version 3.14
 ```
 
-Output: `dist/custom_proxmox-1.0.0.zip`
+Output: `dist/custom_proxmox-1.0.1.zip`
+
+> **Important:** Always use `--extra-platform linux_x86_64 --only-extra-platforms` when building on macOS. Without it, `dt-sdk` bundles macOS-specific wheels (e.g. `charset_normalizer-*-macosx*.whl`) that fail to install on the Linux ActiveGate.
 
 ---
 
