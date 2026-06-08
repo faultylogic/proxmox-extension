@@ -1,0 +1,84 @@
+{
+  "types": {
+    "proxmox_connection": {
+      "type": "object",
+      "displayName": "Proxmox Connection",
+      "properties": {
+        "host": {
+          "type": "text",
+          "displayName": "Proxmox Host",
+          "description": "Hostname or IP of the Proxmox VE node (e.g. 192.168.1.100)",
+          "nullable": false
+        },
+        "port": {
+          "type": "integer",
+          "displayName": "Port",
+          "description": "Proxmox API port (default: 8006)",
+          "default": 8006,
+          "nullable": false
+        },
+        "verify_ssl": {
+          "type": "boolean",
+          "displayName": "Verify SSL Certificate",
+          "description": "Disable for self-signed certs",
+          "default": false,
+          "nullable": false
+        },
+        "username": {
+          "type": "text",
+          "displayName": "Username",
+          "description": "Proxmox API username (e.g. monitoring@pve)",
+          "nullable": false
+        },
+        "token_name": {
+          "type": "text",
+          "displayName": "API Token Name",
+          "description": "Token ID (e.g. 'dynatrace')",
+          "nullable": false
+        },
+        "token_value": {
+          "type": "secret",
+          "displayName": "API Token Value",
+          "description": "The token secret value",
+          "nullable": false
+        }
+      }
+    }
+  },
+  "schema": {
+    "version": "0.0.1",
+    "schemaId": "python:custom.proxmox",
+    "displayName": "Proxmox VE",
+    "description": "Monitor Proxmox VE clusters — nodes, VMs, LXC containers, and storage.",
+    "ownerProductManagement": "Goulet",
+    "ownerDevelopment": "Goulet",
+    "ownerMarketing": "Goulet",
+    "ownerLegalExport": "Goulet",
+    "ownerDomainExpert": "Goulet",
+    "ownerDocumentation": "Goulet",
+    "allowGlobalScope": false,
+    "groups": [
+      {
+        "id": "monitoring",
+        "displayName": "Proxmox Monitoring",
+        "icon": "server",
+        "properties": [
+          {
+            "key": "connection",
+            "displayName": "Connection",
+            "description": "Proxmox API connection settings",
+            "type": "#/types/proxmox_connection"
+          },
+          {
+            "key": "collection_interval_minutes",
+            "displayName": "Collection Interval (minutes)",
+            "description": "How often to poll the Proxmox API",
+            "type": "integer",
+            "default": 1,
+            "nullable": false
+          }
+        ]
+      }
+    ]
+  }
+}

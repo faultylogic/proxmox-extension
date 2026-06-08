@@ -1,0 +1,230 @@
+name: custom:proxmox
+version: "1.0.0"
+minDynatraceVersion: "1.277"
+author:
+  name: Goulet
+
+python:
+  runtime:
+    module: proxmox_extension
+    version:
+      min: "3.10"
+  activation:
+    remote:
+      path: activationSchema.json
+
+metrics:
+  - key: custom.proxmox.node.cpu.usage
+    metadata:
+      displayName: "Proxmox Node CPU Usage"
+      unit: Percent
+  - key: custom.proxmox.node.memory.used
+    metadata:
+      displayName: "Proxmox Node Memory Used"
+      unit: Byte
+  - key: custom.proxmox.node.memory.total
+    metadata:
+      displayName: "Proxmox Node Memory Total"
+      unit: Byte
+  - key: custom.proxmox.node.disk.used
+    metadata:
+      displayName: "Proxmox Node Disk Used"
+      unit: Byte
+  - key: custom.proxmox.node.disk.total
+    metadata:
+      displayName: "Proxmox Node Disk Total"
+      unit: Byte
+  - key: custom.proxmox.node.network.in
+    metadata:
+      displayName: "Proxmox Node Network In"
+      unit: BitPerHour
+  - key: custom.proxmox.node.network.out
+    metadata:
+      displayName: "Proxmox Node Network Out"
+      unit: BitPerHour
+  - key: custom.proxmox.node.uptime
+    metadata:
+      displayName: "Proxmox Node Uptime"
+      unit: Second
+
+  - key: custom.proxmox.vm.cpu.usage
+    metadata:
+      displayName: "Proxmox VM CPU Usage"
+      unit: Percent
+  - key: custom.proxmox.vm.memory.used
+    metadata:
+      displayName: "Proxmox VM Memory Used"
+      unit: Byte
+  - key: custom.proxmox.vm.memory.total
+    metadata:
+      displayName: "Proxmox VM Memory Total"
+      unit: Byte
+  - key: custom.proxmox.vm.disk.read
+    metadata:
+      displayName: "Proxmox VM Disk Read"
+      unit: BytePerHour
+  - key: custom.proxmox.vm.disk.write
+    metadata:
+      displayName: "Proxmox VM Disk Write"
+      unit: BytePerHour
+  - key: custom.proxmox.vm.network.in
+    metadata:
+      displayName: "Proxmox VM Network In"
+      unit: BitPerHour
+  - key: custom.proxmox.vm.network.out
+    metadata:
+      displayName: "Proxmox VM Network Out"
+      unit: BitPerHour
+  - key: custom.proxmox.vm.uptime
+    metadata:
+      displayName: "Proxmox VM Uptime"
+      unit: Second
+
+  - key: custom.proxmox.lxc.cpu.usage
+    metadata:
+      displayName: "Proxmox LXC CPU Usage"
+      unit: Percent
+  - key: custom.proxmox.lxc.memory.used
+    metadata:
+      displayName: "Proxmox LXC Memory Used"
+      unit: Byte
+  - key: custom.proxmox.lxc.memory.total
+    metadata:
+      displayName: "Proxmox LXC Memory Total"
+      unit: Byte
+  - key: custom.proxmox.lxc.disk.read
+    metadata:
+      displayName: "Proxmox LXC Disk Read"
+      unit: BytePerHour
+  - key: custom.proxmox.lxc.disk.write
+    metadata:
+      displayName: "Proxmox LXC Disk Write"
+      unit: BytePerHour
+  - key: custom.proxmox.lxc.network.in
+    metadata:
+      displayName: "Proxmox LXC Network In"
+      unit: BitPerHour
+  - key: custom.proxmox.lxc.network.out
+    metadata:
+      displayName: "Proxmox LXC Network Out"
+      unit: BitPerHour
+
+  - key: custom.proxmox.storage.used
+    metadata:
+      displayName: "Proxmox Storage Used"
+      unit: Byte
+  - key: custom.proxmox.storage.total
+    metadata:
+      displayName: "Proxmox Storage Total"
+      unit: Byte
+  - key: custom.proxmox.cluster.nodes.total
+    metadata:
+      displayName: "Proxmox Cluster Nodes Total"
+      unit: Count
+  - key: custom.proxmox.cluster.nodes.online
+    metadata:
+      displayName: "Proxmox Cluster Nodes Online"
+      unit: Count
+
+topology:
+  types:
+    - name: proxmox:cluster
+      displayName: Proxmox Cluster
+      rules:
+        - idPattern: "proxmox-cluster-{cluster_name}"
+          instanceNamePattern: "{cluster_name}"
+          attributes:
+            - pattern: "{cluster_name}"
+              key: cluster_name
+              displayName: Cluster Name
+    - name: proxmox:node
+      displayName: Proxmox Node
+      rules:
+        - idPattern: "proxmox-node-{node_name}"
+          instanceNamePattern: "{node_name}"
+          attributes:
+            - pattern: "{node_name}"
+              key: node_name
+              displayName: Node Name
+            - pattern: "{cluster_name}"
+              key: cluster_name
+              displayName: Cluster Name
+    - name: proxmox:vm
+      displayName: Proxmox VM
+      rules:
+        - idPattern: "proxmox-vm-{vmid}"
+          instanceNamePattern: "{vm_name}"
+          attributes:
+            - pattern: "{vmid}"
+              key: vmid
+              displayName: VM ID
+            - pattern: "{vm_name}"
+              key: vm_name
+              displayName: VM Name
+            - pattern: "{node_name}"
+              key: node_name
+              displayName: Node Name
+    - name: proxmox:lxc
+      displayName: Proxmox LXC Container
+      rules:
+        - idPattern: "proxmox-lxc-{vmid}"
+          instanceNamePattern: "{lxc_name}"
+          attributes:
+            - pattern: "{vmid}"
+              key: vmid
+              displayName: Container ID
+            - pattern: "{lxc_name}"
+              key: lxc_name
+              displayName: Container Name
+            - pattern: "{node_name}"
+              key: node_name
+              displayName: Node Name
+    - name: proxmox:storage
+      displayName: Proxmox Storage
+      rules:
+        - idPattern: "proxmox-storage-{node_name}-{storage_name}"
+          instanceNamePattern: "{storage_name} ({node_name})"
+          attributes:
+            - pattern: "{storage_name}"
+              key: storage_name
+              displayName: Storage Name
+            - pattern: "{node_name}"
+              key: node_name
+              displayName: Node Name
+
+  relationships:
+    - typeOfRelation: CHILD_OF
+      fromType: proxmox:node
+      toType: proxmox:cluster
+      sources:
+        - sourceType: Metrics
+          mappings:
+            - fromDimension: cluster_name
+              toAttribute: cluster_name
+    - typeOfRelation: RUNS_ON
+      fromType: proxmox:vm
+      toType: proxmox:node
+      sources:
+        - sourceType: Metrics
+          mappings:
+            - fromDimension: node_name
+              toAttribute: node_name
+    - typeOfRelation: RUNS_ON
+      fromType: proxmox:lxc
+      toType: proxmox:node
+      sources:
+        - sourceType: Metrics
+          mappings:
+            - fromDimension: node_name
+              toAttribute: node_name
+    - typeOfRelation: CHILD_OF
+      fromType: proxmox:storage
+      toType: proxmox:node
+      sources:
+        - sourceType: Metrics
+          mappings:
+            - fromDimension: node_name
+              toAttribute: node_name
+
+dashboards:
+  - path: dashboards/proxmox_overview.json
