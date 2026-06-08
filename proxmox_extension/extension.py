@@ -11,7 +11,7 @@ class ProxmoxExtension(Extension):
         self.client = None
 
     def query(self):
-        config = self.activation_config.get("connection", {})
+        config = self.activation_config
         try:
             client = ProxmoxClient(
                 host=config["host"],
