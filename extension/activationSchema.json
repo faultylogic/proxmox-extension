@@ -62,6 +62,7 @@
         "id": "monitoring",
         "displayName": "Proxmox Monitoring",
         "icon": "server",
+        "type": "pythonRemote",
         "properties": [
           {
             "key": "connection",
