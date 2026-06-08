@@ -1,5 +1,5 @@
 import logging
-from dynatrace_extension import Extension, Status, StatusValue
+from dynatrace_extension import Extension
 from .proxmox_client import ProxmoxClient
 
 logger = logging.getLogger(__name__)
@@ -12,21 +12,16 @@ class ProxmoxExtension(Extension):
 
     def query(self):
         config = self.activation_config
-        try:
-            client = ProxmoxClient(
-                host=config["host"],
-                port=int(config.get("port", 8006)),
-                username=config["username"],
-                token_name=config["token_name"],
-                token_value=config["token_value"],
-                verify_ssl=bool(config.get("verify_ssl", False)),
-            )
-            self._collect_cluster(client)
-            self._collect_nodes(client)
-            self.report_status(Status(StatusValue.OK, "Proxmox metrics collected"))
-        except Exception as e:
-            logger.exception("Failed to collect Proxmox metrics")
-            self.report_status(Status(StatusValue.GENERIC_ERROR, str(e)))
+        client = ProxmoxClient(
+            host=config["host"],
+            port=int(config.get("port", 8006)),
+            username=config["username"],
+            token_name=config["token_name"],
+            token_value=config["token_value"],
+            verify_ssl=bool(config.get("verify_ssl", False)),
+        )
+        self._collect_cluster(client)
+        self._collect_nodes(client)
 
     def _collect_cluster(self, client: ProxmoxClient):
         cluster_status = client.get_cluster_status()
@@ -72,7 +67,6 @@ class ProxmoxExtension(Extension):
                 self.report_metric("custom.proxmox.node.disk.used", disk.get("used", 0), dims)
                 self.report_metric("custom.proxmox.node.disk.total", disk.get("total", 0), dims)
 
-                net = status.get("ksm", {})  # network totals are in node summary
                 self.report_metric("custom.proxmox.node.network.in", node_summary.get("netin", 0), dims)
                 self.report_metric("custom.proxmox.node.network.out", node_summary.get("netout", 0), dims)
                 self.report_metric("custom.proxmox.node.uptime", status.get("uptime", 0), dims)
