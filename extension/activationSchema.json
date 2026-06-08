@@ -1,6 +1,6 @@
 {
   "types": {
-    "proxmox_connection": {
+    "pythonRemote": {
       "type": "object",
       "displayName": "Proxmox Connection",
       "properties": {
@@ -20,7 +20,7 @@
         "verify_ssl": {
           "type": "boolean",
           "displayName": "Verify SSL Certificate",
-          "description": "Disable for self-signed certs",
+          "description": "Disable for self-signed certs (recommended for home labs)",
           "default": false,
           "nullable": false
         },
@@ -33,13 +33,20 @@
         "token_name": {
           "type": "text",
           "displayName": "API Token Name",
-          "description": "Token ID (e.g. 'dynatrace')",
+          "description": "Token ID (e.g. dynatrace)",
           "nullable": false
         },
         "token_value": {
           "type": "secret",
           "displayName": "API Token Value",
           "description": "The token secret value",
+          "nullable": false
+        },
+        "collection_interval_minutes": {
+          "type": "integer",
+          "displayName": "Collection Interval (minutes)",
+          "description": "How often to poll the Proxmox API",
+          "default": 1,
           "nullable": false
         }
       }
@@ -62,21 +69,35 @@
         "id": "monitoring",
         "displayName": "Proxmox Monitoring",
         "icon": "server",
-        "type": "pythonRemote",
+        "type": "#/types/pythonRemote",
         "properties": [
           {
-            "key": "connection",
-            "displayName": "Connection",
-            "description": "Proxmox API connection settings",
-            "type": "#/types/proxmox_connection"
+            "key": "host",
+            "displayName": "Proxmox Host"
+          },
+          {
+            "key": "port",
+            "displayName": "Port"
+          },
+          {
+            "key": "verify_ssl",
+            "displayName": "Verify SSL Certificate"
+          },
+          {
+            "key": "username",
+            "displayName": "Username"
+          },
+          {
+            "key": "token_name",
+            "displayName": "API Token Name"
+          },
+          {
+            "key": "token_value",
+            "displayName": "API Token Value"
           },
           {
             "key": "collection_interval_minutes",
-            "displayName": "Collection Interval (minutes)",
-            "description": "How often to poll the Proxmox API",
-            "type": "integer",
-            "default": 1,
-            "nullable": false
+            "displayName": "Collection Interval (minutes)"
           }
         ]
       }
