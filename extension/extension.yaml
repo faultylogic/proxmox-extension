@@ -1,5 +1,5 @@
 name: custom:proxmox
-version: "1.0.2"
+version: "1.0.3"
 minDynatraceVersion: "1.333"
 author:
   name: Goulet
