@@ -8,7 +8,7 @@
           "type": "text",
           "displayName": "Proxmox Host",
           "description": "Hostname or IP of the Proxmox VE node (e.g. 192.168.1.100)",
-          "nullable": false
+          "nullable": true
         },
         "port": {
           "type": "integer",
@@ -28,19 +28,19 @@
           "type": "text",
           "displayName": "Username",
           "description": "Proxmox API username (e.g. monitoring@pve)",
-          "nullable": false
+          "nullable": true
         },
         "token_name": {
           "type": "text",
           "displayName": "API Token Name",
           "description": "Token ID (e.g. dynatrace)",
-          "nullable": false
+          "nullable": true
         },
         "token_value": {
           "type": "secret",
           "displayName": "API Token Value",
           "description": "The token secret value",
-          "nullable": false
+          "nullable": true
         },
         "collection_interval_minutes": {
           "type": "integer",
