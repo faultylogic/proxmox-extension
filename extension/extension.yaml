@@ -545,3 +545,4 @@ topology:
 
 dashboards:
   - path: dashboards/proxmox_overview.json
+  - path: dashboards/proxmox_guest_detail.json
