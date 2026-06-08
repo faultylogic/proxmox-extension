@@ -1,6 +1,6 @@
 name: custom:proxmox
 version: "1.0.0"
-minDynatraceVersion: "1.277"
+minDynatraceVersion: "1.333"
 author:
   name: Goulet
 
@@ -8,7 +8,7 @@ python:
   runtime:
     module: proxmox_extension
     version:
-      min: "3.10"
+      min: "3.11"
   activation:
     remote:
       path: activationSchema.json
