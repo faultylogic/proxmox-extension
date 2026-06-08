@@ -4,6 +4,12 @@ from .proxmox_client import ProxmoxClient
 
 logger = logging.getLogger(__name__)
 
+# PVE services we care about monitoring
+MONITORED_SERVICES = {
+    "pve-cluster", "pvedaemon", "pveproxy", "pvestatd",
+    "pvescheduler", "corosync", "pve-firewall",
+}
+
 
 class ProxmoxExtension(Extension):
 
@@ -20,10 +26,16 @@ class ProxmoxExtension(Extension):
             token_value=config["token_value"],
             verify_ssl=bool(config.get("verify_ssl", False)),
         )
-        self._collect_cluster(client)
-        self._collect_nodes(client)
+        cluster_name = self._collect_cluster(client)
+        self._collect_ha(client, cluster_name)
+        self._collect_replication(client, cluster_name)
+        self._collect_backups(client, cluster_name)
+        self._collect_ceph(client, cluster_name)
+        self._collect_nodes(client, cluster_name)
 
-    def _collect_cluster(self, client: ProxmoxClient):
+    # ------------------------------------------------------------------ Cluster
+
+    def _collect_cluster(self, client: ProxmoxClient) -> str:
         cluster_status = client.get_cluster_status()
         cluster_name = "proxmox"
         nodes_total = 0
@@ -40,14 +52,114 @@ class ProxmoxExtension(Extension):
         dims = {"cluster_name": cluster_name}
         self.report_metric("custom.proxmox.cluster.nodes.total", nodes_total, dims)
         self.report_metric("custom.proxmox.cluster.nodes.online", nodes_online, dims)
+        return cluster_name
 
-    def _collect_nodes(self, client: ProxmoxClient):
-        cluster_status = client.get_cluster_status()
-        cluster_name = next(
-            (i.get("name", "proxmox") for i in cluster_status if i.get("type") == "cluster"),
-            "proxmox",
-        )
+    # ------------------------------------------------------------------ HA
 
+    def _collect_ha(self, client: ProxmoxClient, cluster_name: str):
+        try:
+            dims = {"cluster_name": cluster_name}
+            ha_current = client.get_ha_status()
+            quorate = 0
+            for item in ha_current:
+                if item.get("type") == "quorum":
+                    quorate = 1 if item.get("quorate", 0) else 0
+            self.report_metric("custom.proxmox.cluster.ha.quorate", quorate, dims)
+
+            for resource in client.get_ha_resources():
+                sid = resource.get("sid", "unknown")
+                state = resource.get("state", "")
+                rdims = {"ha_resource": sid, "cluster_name": cluster_name}
+                self.report_metric(
+                    "custom.proxmox.cluster.ha.resource.running",
+                    1 if state == "started" else 0,
+                    rdims,
+                )
+        except Exception:
+            logger.exception("Error collecting HA metrics")
+
+    # ------------------------------------------------------------------ Replication
+
+    def _collect_replication(self, client: ProxmoxClient, cluster_name: str):
+        try:
+            for job in client.get_replication_jobs():
+                job_id = job.get("id", "unknown")
+                rdims = {"replication_job": job_id, "cluster_name": cluster_name}
+                self.report_metric(
+                    "custom.proxmox.cluster.replication.fail_count",
+                    job.get("fail_count", 0),
+                    rdims,
+                )
+                duration = job.get("duration", 0)
+                if duration:
+                    self.report_metric("custom.proxmox.cluster.replication.duration", duration, rdims)
+                error = 1 if job.get("error") else 0
+                self.report_metric("custom.proxmox.cluster.replication.error", error, rdims)
+        except Exception:
+            logger.exception("Error collecting replication metrics")
+
+    # ------------------------------------------------------------------ Backups
+
+    def _collect_backups(self, client: ProxmoxClient, cluster_name: str):
+        try:
+            dims = {"cluster_name": cluster_name}
+            not_backed_up = client.get_not_backed_up()
+            self.report_metric(
+                "custom.proxmox.cluster.backup.unprotected_guests",
+                len(not_backed_up),
+                dims,
+            )
+        except Exception:
+            logger.exception("Error collecting backup metrics")
+
+    # ------------------------------------------------------------------ Ceph
+
+    def _collect_ceph(self, client: ProxmoxClient, cluster_name: str):
+        try:
+            status = client.get_ceph_status()
+            dims = {"cluster_name": cluster_name}
+
+            health_str = status.get("health", {}).get("status", "HEALTH_UNKNOWN")
+            health_val = {"HEALTH_OK": 2, "HEALTH_WARN": 1, "HEALTH_ERR": 0}.get(health_str, -1)
+            self.report_metric("custom.proxmox.ceph.health", health_val, dims)
+
+            osdmap = status.get("osdmap", {})
+            self.report_metric("custom.proxmox.ceph.osd.total", osdmap.get("num_osds", 0), dims)
+            self.report_metric("custom.proxmox.ceph.osd.up", osdmap.get("num_up_osds", 0), dims)
+            self.report_metric("custom.proxmox.ceph.osd.in", osdmap.get("num_in_osds", 0), dims)
+
+            pgmap = status.get("pgmap", {})
+            self.report_metric("custom.proxmox.ceph.pg.total", pgmap.get("num_pgs", 0), dims)
+            self.report_metric("custom.proxmox.ceph.bytes.used", pgmap.get("bytes_used", 0), dims)
+            self.report_metric("custom.proxmox.ceph.bytes.avail", pgmap.get("bytes_avail", 0), dims)
+            self.report_metric("custom.proxmox.ceph.bytes.total", pgmap.get("bytes_total", 0), dims)
+            self.report_metric("custom.proxmox.ceph.io.read_bps", pgmap.get("read_bytes_sec", 0), dims)
+            self.report_metric("custom.proxmox.ceph.io.write_bps", pgmap.get("write_bytes_sec", 0), dims)
+            self.report_metric("custom.proxmox.ceph.io.recovering_bps", pgmap.get("recovering_bytes_per_sec", 0), dims)
+
+            monmap = status.get("monmap", {})
+            self.report_metric("custom.proxmox.ceph.mon.count", monmap.get("num_mons", 0), dims)
+
+            # Ceph flags — noout/noin/pause are operationally critical
+            try:
+                for flag in client.get_ceph_flags():
+                    name = flag.get("name", "")
+                    if name in ("noout", "noin", "nodown", "pause", "full", "nearfull"):
+                        fdims = {"ceph_flag": name, "cluster_name": cluster_name}
+                        self.report_metric(
+                            "custom.proxmox.ceph.flag",
+                            1 if flag.get("value") else 0,
+                            fdims,
+                        )
+            except Exception:
+                logger.debug("Ceph flags not available")
+
+        except Exception:
+            logger.debug("Ceph not configured or not accessible — skipping")
+
+    # ------------------------------------------------------------------ Nodes
+
+    def _collect_nodes(self, client: ProxmoxClient, cluster_name: str):
         for node_summary in client.get_nodes():
             node = node_summary.get("node")
             if not node:
@@ -57,8 +169,7 @@ class ProxmoxExtension(Extension):
                 dims = {"node_name": node, "cluster_name": cluster_name}
 
                 # CPU
-                cpu = status.get("cpu", 0)
-                self.report_metric("custom.proxmox.node.cpu.usage", cpu * 100, dims)
+                self.report_metric("custom.proxmox.node.cpu.usage", status.get("cpu", 0) * 100, dims)
                 cpuinfo = status.get("cpuinfo", {})
                 self.report_metric("custom.proxmox.node.cpu.count", cpuinfo.get("cpus", 0), dims)
                 self.report_metric("custom.proxmox.node.cpu.sockets", cpuinfo.get("sockets", 0), dims)
@@ -81,30 +192,154 @@ class ProxmoxExtension(Extension):
                 self.report_metric("custom.proxmox.node.swap.total", swap.get("total", 0), dims)
                 self.report_metric("custom.proxmox.node.swap.free", swap.get("free", 0), dims)
 
-                # Disk (root filesystem)
+                # Root filesystem
                 disk = status.get("rootfs", {})
                 self.report_metric("custom.proxmox.node.disk.used", disk.get("used", 0), dims)
                 self.report_metric("custom.proxmox.node.disk.total", disk.get("total", 0), dims)
                 self.report_metric("custom.proxmox.node.disk.avail", disk.get("avail", 0), dims)
 
-                # Network (from node list summary)
+                # Network (aggregate from node list)
                 self.report_metric("custom.proxmox.node.network.in", node_summary.get("netin", 0), dims)
                 self.report_metric("custom.proxmox.node.network.out", node_summary.get("netout", 0), dims)
 
-                # Uptime
+                # Uptime / KSM
                 self.report_metric("custom.proxmox.node.uptime", status.get("uptime", 0), dims)
-
-                # KSM (Kernel Same-page Merging) deduplication
                 ksm = status.get("ksm", {})
                 if ksm:
                     self.report_metric("custom.proxmox.node.ksm.shared", ksm.get("shared", 0), dims)
 
+                # Services
+                self._collect_node_services(client, node, cluster_name)
+
+                # Subscription
+                self._collect_node_subscription(client, node, cluster_name)
+
+                # Pending updates
+                self._collect_node_updates(client, node, cluster_name)
+
+                # Per-VM network throughput (host tap level)
+                self._collect_node_netstat(client, node, cluster_name)
+
+                # Tasks — count errors in last 100
+                self._collect_node_tasks(client, node, cluster_name)
+
+                # Physical disks + SMART
+                self._collect_disks(client, node, cluster_name)
+
+                # VMs / LXC / Storage
                 self._collect_vms(client, node, cluster_name)
                 self._collect_containers(client, node, cluster_name)
                 self._collect_storage(client, node, cluster_name)
-                self._collect_disks(client, node, cluster_name)
+
             except Exception:
                 logger.exception("Error collecting metrics for node %s", node)
+
+    def _collect_node_services(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            for svc in client.get_node_services(node):
+                name = svc.get("service", svc.get("name", ""))
+                if name not in MONITORED_SERVICES:
+                    continue
+                active = 1 if svc.get("active-state", svc.get("state", "")) == "active" else 0
+                sdims = {"service_name": name, "node_name": node, "cluster_name": cluster_name}
+                self.report_metric("custom.proxmox.node.service.status", active, sdims)
+        except Exception:
+            logger.exception("Error collecting service metrics for node %s", node)
+
+    def _collect_node_subscription(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            sub = client.get_node_subscription(node)
+            status_str = sub.get("status", "notfound")
+            active = 1 if status_str == "active" else 0
+            dims = {"node_name": node, "cluster_name": cluster_name}
+            self.report_metric("custom.proxmox.node.subscription.active", active, dims)
+        except Exception:
+            logger.debug("Could not collect subscription for node %s", node)
+
+    def _collect_node_updates(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            updates = client.get_node_apt_updates(node)
+            proxmox_updates = sum(1 for u in updates if "proxmox" in u.get("Origin", "").lower())
+            dims = {"node_name": node, "cluster_name": cluster_name}
+            self.report_metric("custom.proxmox.node.updates.pending", len(updates), dims)
+            self.report_metric("custom.proxmox.node.updates.proxmox_pending", proxmox_updates, dims)
+        except Exception:
+            logger.debug("Could not collect apt updates for node %s", node)
+
+    def _collect_node_netstat(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            for iface in client.get_node_netstat(node):
+                vmid = str(iface.get("vmid", ""))
+                dev = iface.get("dev", "")
+                if not vmid or not dev:
+                    continue
+                idims = {"vmid": vmid, "iface": dev, "node_name": node, "cluster_name": cluster_name}
+                self.report_metric("custom.proxmox.node.netstat.in", iface.get("in", 0), idims)
+                self.report_metric("custom.proxmox.node.netstat.out", iface.get("out", 0), idims)
+        except Exception:
+            logger.debug("Could not collect netstat for node %s", node)
+
+    def _collect_node_tasks(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            tasks = client.get_node_tasks(node)
+            error_count = sum(1 for t in tasks if t.get("status", "").startswith("FAILED"))
+            running_count = sum(1 for t in tasks if not t.get("endtime"))
+            dims = {"node_name": node, "cluster_name": cluster_name}
+            self.report_metric("custom.proxmox.node.tasks.errors", error_count, dims)
+            self.report_metric("custom.proxmox.node.tasks.running", running_count, dims)
+        except Exception:
+            logger.debug("Could not collect tasks for node %s", node)
+
+    # ------------------------------------------------------------------ Physical Disks
+
+    def _collect_disks(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            for disk in client.get_node_disks(node):
+                dev = disk.get("devpath", disk.get("dev", ""))
+                if not dev:
+                    continue
+                disk_name = dev.replace("/dev/", "")
+                dims = {"disk_dev": disk_name, "node_name": node, "cluster_name": cluster_name}
+
+                self.report_metric("custom.proxmox.node.disk.device.size", disk.get("size", 0), dims)
+
+                # Basic health from disk list
+                health = disk.get("health", "")
+                health_val = 1 if health.upper() == "PASSED" else (0 if health.upper() == "FAILED" else -1)
+                self.report_metric("custom.proxmox.node.disk.device.smart", health_val, dims)
+
+                # Detailed SMART attributes
+                self._collect_disk_smart(client, node, dev, disk_name, cluster_name)
+
+        except Exception:
+            logger.exception("Error collecting disk list for node %s", node)
+
+    def _collect_disk_smart(self, client: ProxmoxClient, node: str, dev: str, disk_name: str, cluster_name: str):
+        try:
+            smart = client.get_disk_smart(node, dev)
+            dims = {"disk_dev": disk_name, "node_name": node, "cluster_name": cluster_name}
+
+            # Key SMART attributes by ID
+            SMART_IDS = {
+                5:   "reallocated_sectors",
+                9:   "power_on_hours",
+                187: "uncorrectable_errors",
+                188: "command_timeout",
+                197: "pending_sectors",
+                198: "uncorrectable_sector_count",
+                199: "udma_crc_errors",
+            }
+            for attr in smart.get("attributes", []):
+                attr_id = attr.get("id")
+                if attr_id in SMART_IDS:
+                    adims = {**dims, "smart_attr": SMART_IDS[attr_id]}
+                    raw = attr.get("raw", {})
+                    raw_val = raw.get("value", 0) if isinstance(raw, dict) else int(raw or 0)
+                    self.report_metric("custom.proxmox.node.disk.device.smart_attr", raw_val, adims)
+        except Exception:
+            logger.debug("SMART data not available for %s on %s", dev, node)
+
+    # ------------------------------------------------------------------ VMs
 
     def _collect_vms(self, client: ProxmoxClient, node: str, cluster_name: str):
         for vm in client.get_vms(node):
@@ -116,9 +351,9 @@ class ProxmoxExtension(Extension):
                 status = client.get_vm_status(node, vmid)
                 dims = {"vmid": str(vmid), "vm_name": name, "node_name": node, "cluster_name": cluster_name}
 
-                # Status: 1=running, 0=stopped/other
-                vm_status = 1 if status.get("status") == "running" else 0
-                self.report_metric("custom.proxmox.vm.status", vm_status, dims)
+                # Status
+                vm_running = 1 if status.get("status") == "running" else 0
+                self.report_metric("custom.proxmox.vm.status", vm_running, dims)
 
                 # CPU
                 self.report_metric("custom.proxmox.vm.cpu.usage", status.get("cpu", 0) * 100, dims)
@@ -128,7 +363,7 @@ class ProxmoxExtension(Extension):
                 self.report_metric("custom.proxmox.vm.memory.used", status.get("mem", 0), dims)
                 self.report_metric("custom.proxmox.vm.memory.total", status.get("maxmem", 0), dims)
 
-                # Balloon memory (if enabled)
+                # Balloon
                 balloon = status.get("ballooninfo", {})
                 if balloon:
                     self.report_metric("custom.proxmox.vm.balloon.current", balloon.get("current_allocated", 0), dims)
@@ -145,8 +380,66 @@ class ProxmoxExtension(Extension):
 
                 # Uptime
                 self.report_metric("custom.proxmox.vm.uptime", status.get("uptime", 0), dims)
+
+                # Snapshots
+                self._collect_vm_snapshots(client, node, vmid, name, cluster_name)
+
+                # QEMU guest agent (only for running VMs)
+                if vm_running and status.get("agent", 0):
+                    self._collect_vm_agent(client, node, vmid, name, cluster_name)
+
             except Exception:
                 logger.exception("Error collecting metrics for VM %s on %s", vmid, node)
+
+    def _collect_vm_snapshots(self, client: ProxmoxClient, node: str, vmid: int, vm_name: str, cluster_name: str):
+        try:
+            snaps = client.get_vm_snapshots(node, vmid)
+            # "current" is the live state sentinel, not a real snapshot
+            real_snaps = [s for s in snaps if s.get("name") != "current"]
+            dims = {"vmid": str(vmid), "vm_name": vm_name, "node_name": node, "cluster_name": cluster_name}
+            self.report_metric("custom.proxmox.vm.snapshot.count", len(real_snaps), dims)
+        except Exception:
+            logger.debug("Could not collect snapshots for VM %s on %s", vmid, node)
+
+    def _collect_vm_agent(self, client: ProxmoxClient, node: str, vmid: int, vm_name: str, cluster_name: str):
+        # In-guest filesystem usage
+        try:
+            for fs in client.get_vm_agent_fsinfo(node, vmid):
+                mp = fs.get("mountpoint", "")
+                if not mp:
+                    continue
+                fdims = {
+                    "vmid": str(vmid), "vm_name": vm_name,
+                    "mountpoint": mp, "node_name": node, "cluster_name": cluster_name,
+                }
+                self.report_metric("custom.proxmox.vm.agent.disk.used", fs.get("used-bytes", 0), fdims)
+                self.report_metric("custom.proxmox.vm.agent.disk.total", fs.get("total-bytes", 0), fdims)
+        except Exception:
+            logger.debug("Guest agent fsinfo not available for VM %s", vmid)
+
+        # In-guest per-interface network stats
+        try:
+            for iface in client.get_vm_agent_network(node, vmid):
+                iface_name = iface.get("name", "")
+                if not iface_name or iface_name == "lo":
+                    continue
+                stats = iface.get("statistics", {})
+                if not stats:
+                    continue
+                idims = {
+                    "vmid": str(vmid), "vm_name": vm_name,
+                    "iface": iface_name, "node_name": node, "cluster_name": cluster_name,
+                }
+                self.report_metric("custom.proxmox.vm.agent.net.rx_bytes", stats.get("rx-bytes", 0), idims)
+                self.report_metric("custom.proxmox.vm.agent.net.tx_bytes", stats.get("tx-bytes", 0), idims)
+                self.report_metric("custom.proxmox.vm.agent.net.rx_errors", stats.get("rx-errs", 0), idims)
+                self.report_metric("custom.proxmox.vm.agent.net.tx_errors", stats.get("tx-errs", 0), idims)
+                self.report_metric("custom.proxmox.vm.agent.net.rx_dropped", stats.get("rx-dropped", 0), idims)
+                self.report_metric("custom.proxmox.vm.agent.net.tx_dropped", stats.get("tx-dropped", 0), idims)
+        except Exception:
+            logger.debug("Guest agent network info not available for VM %s", vmid)
+
+    # ------------------------------------------------------------------ LXC
 
     def _collect_containers(self, client: ProxmoxClient, node: str, cluster_name: str):
         for ct in client.get_containers(node):
@@ -158,9 +451,8 @@ class ProxmoxExtension(Extension):
                 status = client.get_container_status(node, vmid)
                 dims = {"vmid": str(vmid), "lxc_name": name, "node_name": node, "cluster_name": cluster_name}
 
-                # Status: 1=running, 0=stopped/other
-                ct_status = 1 if status.get("status") == "running" else 0
-                self.report_metric("custom.proxmox.lxc.status", ct_status, dims)
+                # Status
+                self.report_metric("custom.proxmox.lxc.status", 1 if status.get("status") == "running" else 0, dims)
 
                 # CPU
                 self.report_metric("custom.proxmox.lxc.cpu.usage", status.get("cpu", 0) * 100, dims)
@@ -182,8 +474,23 @@ class ProxmoxExtension(Extension):
                 # Network
                 self.report_metric("custom.proxmox.lxc.network.in", status.get("netin", 0), dims)
                 self.report_metric("custom.proxmox.lxc.network.out", status.get("netout", 0), dims)
+
+                # Snapshots
+                self._collect_ct_snapshots(client, node, vmid, name, cluster_name)
+
             except Exception:
                 logger.exception("Error collecting metrics for LXC %s on %s", vmid, node)
+
+    def _collect_ct_snapshots(self, client: ProxmoxClient, node: str, vmid: int, lxc_name: str, cluster_name: str):
+        try:
+            snaps = client.get_container_snapshots(node, vmid)
+            real_snaps = [s for s in snaps if s.get("name") != "current"]
+            dims = {"vmid": str(vmid), "lxc_name": lxc_name, "node_name": node, "cluster_name": cluster_name}
+            self.report_metric("custom.proxmox.lxc.snapshot.count", len(real_snaps), dims)
+        except Exception:
+            logger.debug("Could not collect snapshots for LXC %s on %s", vmid, node)
+
+    # ------------------------------------------------------------------ Storage
 
     def _collect_storage(self, client: ProxmoxClient, node: str, cluster_name: str):
         for storage in client.get_storage(node):
@@ -192,35 +499,20 @@ class ProxmoxExtension(Extension):
                 continue
             dims = {"storage_name": name, "node_name": node, "cluster_name": cluster_name}
 
-            # Basic stats from list endpoint
             self.report_metric("custom.proxmox.storage.used", storage.get("used", 0), dims)
             self.report_metric("custom.proxmox.storage.total", storage.get("total", 0), dims)
             self.report_metric("custom.proxmox.storage.avail", storage.get("avail", 0), dims)
-
-            # Enabled / active flags as gauges (1=true, 0=false)
             self.report_metric("custom.proxmox.storage.enabled", 1 if storage.get("enabled", 1) else 0, dims)
             self.report_metric("custom.proxmox.storage.active", 1 if storage.get("active", 0) else 0, dims)
 
-    def _collect_disks(self, client: ProxmoxClient, node: str, cluster_name: str):
-        try:
-            disks = client.get_node_disks(node)
-            for disk in disks:
-                dev = disk.get("devpath", disk.get("dev", ""))
-                if not dev:
-                    continue
-                # Normalise device name for use as a dimension value
-                disk_name = dev.replace("/dev/", "")
-                dims = {"disk_dev": disk_name, "node_name": node, "cluster_name": cluster_name}
+            # Backup content count
+            self._collect_storage_backups(client, node, name, cluster_name)
 
-                self.report_metric("custom.proxmox.node.disk.device.size", disk.get("size", 0), dims)
-                health = disk.get("health", "")
-                # SMART health: PASSED=1, FAILED=0, unknown=-1
-                if health.upper() == "PASSED":
-                    smart = 1
-                elif health.upper() == "FAILED":
-                    smart = 0
-                else:
-                    smart = -1
-                self.report_metric("custom.proxmox.node.disk.device.smart", smart, dims)
+    def _collect_storage_backups(self, client: ProxmoxClient, node: str, storage: str, cluster_name: str):
+        try:
+            content = client.get_storage_content(node, storage)
+            backup_count = sum(1 for c in content if c.get("content", c.get("format", "")) in ("backup", "vztmpl") or "backup" in str(c.get("volid", "")))
+            dims = {"storage_name": storage, "node_name": node, "cluster_name": cluster_name}
+            self.report_metric("custom.proxmox.storage.backup_count", backup_count, dims)
         except Exception:
-            logger.exception("Error collecting disk metrics for node %s", node)
+            logger.debug("Could not collect content for storage %s on %s", storage, node)

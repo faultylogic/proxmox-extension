@@ -1,5 +1,5 @@
 name: custom:proxmox
-version: "1.0.9"
+version: "1.1.0"
 minDynatraceVersion: "1.333"
 author:
   name: Goulet
@@ -14,7 +14,7 @@ python:
       path: activationSchema.json
 
 metrics:
-  # --- Cluster ---
+  # ── Cluster ────────────────────────────────────────────────────────────────
   - key: custom.proxmox.cluster.nodes.total
     metadata:
       displayName: "Proxmox Cluster Nodes Total"
@@ -24,7 +24,91 @@ metrics:
       displayName: "Proxmox Cluster Nodes Online"
       unit: Count
 
-  # --- Node: CPU ---
+  # ── Cluster: HA ────────────────────────────────────────────────────────────
+  - key: custom.proxmox.cluster.ha.quorate
+    metadata:
+      displayName: "Proxmox HA Quorate (1=yes)"
+      unit: Count
+  - key: custom.proxmox.cluster.ha.resource.running
+    metadata:
+      displayName: "Proxmox HA Resource Running (1=started)"
+      unit: Count
+
+  # ── Cluster: Replication ───────────────────────────────────────────────────
+  - key: custom.proxmox.cluster.replication.fail_count
+    metadata:
+      displayName: "Proxmox Replication Fail Count"
+      unit: Count
+  - key: custom.proxmox.cluster.replication.duration
+    metadata:
+      displayName: "Proxmox Replication Last Duration"
+      unit: Second
+  - key: custom.proxmox.cluster.replication.error
+    metadata:
+      displayName: "Proxmox Replication Error (1=error)"
+      unit: Count
+
+  # ── Cluster: Backups ───────────────────────────────────────────────────────
+  - key: custom.proxmox.cluster.backup.unprotected_guests
+    metadata:
+      displayName: "Proxmox Guests Without Backup"
+      unit: Count
+
+  # ── Ceph ───────────────────────────────────────────────────────────────────
+  - key: custom.proxmox.ceph.health
+    metadata:
+      displayName: "Proxmox Ceph Health (2=OK, 1=WARN, 0=ERR)"
+      unit: Count
+  - key: custom.proxmox.ceph.osd.total
+    metadata:
+      displayName: "Proxmox Ceph OSDs Total"
+      unit: Count
+  - key: custom.proxmox.ceph.osd.up
+    metadata:
+      displayName: "Proxmox Ceph OSDs Up"
+      unit: Count
+  - key: custom.proxmox.ceph.osd.in
+    metadata:
+      displayName: "Proxmox Ceph OSDs In"
+      unit: Count
+  - key: custom.proxmox.ceph.pg.total
+    metadata:
+      displayName: "Proxmox Ceph PGs Total"
+      unit: Count
+  - key: custom.proxmox.ceph.bytes.used
+    metadata:
+      displayName: "Proxmox Ceph Bytes Used"
+      unit: Byte
+  - key: custom.proxmox.ceph.bytes.avail
+    metadata:
+      displayName: "Proxmox Ceph Bytes Available"
+      unit: Byte
+  - key: custom.proxmox.ceph.bytes.total
+    metadata:
+      displayName: "Proxmox Ceph Bytes Total"
+      unit: Byte
+  - key: custom.proxmox.ceph.io.read_bps
+    metadata:
+      displayName: "Proxmox Ceph Read Throughput"
+      unit: BytePerSecond
+  - key: custom.proxmox.ceph.io.write_bps
+    metadata:
+      displayName: "Proxmox Ceph Write Throughput"
+      unit: BytePerSecond
+  - key: custom.proxmox.ceph.io.recovering_bps
+    metadata:
+      displayName: "Proxmox Ceph Recovery Throughput"
+      unit: BytePerSecond
+  - key: custom.proxmox.ceph.mon.count
+    metadata:
+      displayName: "Proxmox Ceph Monitor Count"
+      unit: Count
+  - key: custom.proxmox.ceph.flag
+    metadata:
+      displayName: "Proxmox Ceph Flag Active (1=set)"
+      unit: Count
+
+  # ── Node: CPU ──────────────────────────────────────────────────────────────
   - key: custom.proxmox.node.cpu.usage
     metadata:
       displayName: "Proxmox Node CPU Usage"
@@ -38,7 +122,7 @@ metrics:
       displayName: "Proxmox Node CPU Sockets"
       unit: Count
 
-  # --- Node: Load Average ---
+  # ── Node: Load Average ─────────────────────────────────────────────────────
   - key: custom.proxmox.node.loadavg.1m
     metadata:
       displayName: "Proxmox Node Load Average 1m"
@@ -52,7 +136,7 @@ metrics:
       displayName: "Proxmox Node Load Average 15m"
       unit: Count
 
-  # --- Node: Memory ---
+  # ── Node: Memory ───────────────────────────────────────────────────────────
   - key: custom.proxmox.node.memory.used
     metadata:
       displayName: "Proxmox Node Memory Used"
@@ -66,7 +150,7 @@ metrics:
       displayName: "Proxmox Node Memory Free"
       unit: Byte
 
-  # --- Node: Swap ---
+  # ── Node: Swap ─────────────────────────────────────────────────────────────
   - key: custom.proxmox.node.swap.used
     metadata:
       displayName: "Proxmox Node Swap Used"
@@ -80,21 +164,21 @@ metrics:
       displayName: "Proxmox Node Swap Free"
       unit: Byte
 
-  # --- Node: Root Disk ---
+  # ── Node: Root Disk ────────────────────────────────────────────────────────
   - key: custom.proxmox.node.disk.used
     metadata:
-      displayName: "Proxmox Node Disk Used"
+      displayName: "Proxmox Node Root Disk Used"
       unit: Byte
   - key: custom.proxmox.node.disk.total
     metadata:
-      displayName: "Proxmox Node Disk Total"
+      displayName: "Proxmox Node Root Disk Total"
       unit: Byte
   - key: custom.proxmox.node.disk.avail
     metadata:
-      displayName: "Proxmox Node Disk Available"
+      displayName: "Proxmox Node Root Disk Available"
       unit: Byte
 
-  # --- Node: Network ---
+  # ── Node: Network ──────────────────────────────────────────────────────────
   - key: custom.proxmox.node.network.in
     metadata:
       displayName: "Proxmox Node Network In"
@@ -104,7 +188,17 @@ metrics:
       displayName: "Proxmox Node Network Out"
       unit: BitPerHour
 
-  # --- Node: Uptime / KSM ---
+  # ── Node: Per-VM tap network (netstat) ─────────────────────────────────────
+  - key: custom.proxmox.node.netstat.in
+    metadata:
+      displayName: "Proxmox Node Tap Network In (per VM)"
+      unit: Byte
+  - key: custom.proxmox.node.netstat.out
+    metadata:
+      displayName: "Proxmox Node Tap Network Out (per VM)"
+      unit: Byte
+
+  # ── Node: Uptime / KSM ────────────────────────────────────────────────────
   - key: custom.proxmox.node.uptime
     metadata:
       displayName: "Proxmox Node Uptime"
@@ -114,17 +208,53 @@ metrics:
       displayName: "Proxmox Node KSM Shared Memory"
       unit: Byte
 
-  # --- Node: Physical Disks ---
+  # ── Node: Services ─────────────────────────────────────────────────────────
+  - key: custom.proxmox.node.service.status
+    metadata:
+      displayName: "Proxmox Node Service Status (1=active)"
+      unit: Count
+
+  # ── Node: Subscription ─────────────────────────────────────────────────────
+  - key: custom.proxmox.node.subscription.active
+    metadata:
+      displayName: "Proxmox Node Subscription Active (1=yes)"
+      unit: Count
+
+  # ── Node: Updates ──────────────────────────────────────────────────────────
+  - key: custom.proxmox.node.updates.pending
+    metadata:
+      displayName: "Proxmox Node Pending Updates"
+      unit: Count
+  - key: custom.proxmox.node.updates.proxmox_pending
+    metadata:
+      displayName: "Proxmox Node Pending Proxmox Updates"
+      unit: Count
+
+  # ── Node: Tasks ────────────────────────────────────────────────────────────
+  - key: custom.proxmox.node.tasks.errors
+    metadata:
+      displayName: "Proxmox Node Task Errors"
+      unit: Count
+  - key: custom.proxmox.node.tasks.running
+    metadata:
+      displayName: "Proxmox Node Tasks Running"
+      unit: Count
+
+  # ── Node: Physical Disks ───────────────────────────────────────────────────
   - key: custom.proxmox.node.disk.device.size
     metadata:
-      displayName: "Proxmox Node Physical Disk Size"
+      displayName: "Proxmox Physical Disk Size"
       unit: Byte
   - key: custom.proxmox.node.disk.device.smart
     metadata:
-      displayName: "Proxmox Node Physical Disk SMART Health"
+      displayName: "Proxmox Physical Disk SMART Health (1=PASSED)"
+      unit: Count
+  - key: custom.proxmox.node.disk.device.smart_attr
+    metadata:
+      displayName: "Proxmox Physical Disk SMART Attribute"
       unit: Count
 
-  # --- VM: Status / CPU ---
+  # ── VM: Status / CPU ───────────────────────────────────────────────────────
   - key: custom.proxmox.vm.status
     metadata:
       displayName: "Proxmox VM Status (1=running)"
@@ -138,7 +268,7 @@ metrics:
       displayName: "Proxmox VM vCPU Count"
       unit: Count
 
-  # --- VM: Memory ---
+  # ── VM: Memory ─────────────────────────────────────────────────────────────
   - key: custom.proxmox.vm.memory.used
     metadata:
       displayName: "Proxmox VM Memory Used"
@@ -147,18 +277,16 @@ metrics:
     metadata:
       displayName: "Proxmox VM Memory Total"
       unit: Byte
-
-  # --- VM: Balloon ---
   - key: custom.proxmox.vm.balloon.current
     metadata:
-      displayName: "Proxmox VM Balloon Current Allocated"
+      displayName: "Proxmox VM Balloon Current"
       unit: Byte
   - key: custom.proxmox.vm.balloon.target
     metadata:
-      displayName: "Proxmox VM Balloon Target Allocated"
+      displayName: "Proxmox VM Balloon Target"
       unit: Byte
 
-  # --- VM: Disk ---
+  # ── VM: Disk ───────────────────────────────────────────────────────────────
   - key: custom.proxmox.vm.disk.read
     metadata:
       displayName: "Proxmox VM Disk Read"
@@ -172,7 +300,7 @@ metrics:
       displayName: "Proxmox VM Disk Size"
       unit: Byte
 
-  # --- VM: Network / Uptime ---
+  # ── VM: Network / Uptime / Snapshots ──────────────────────────────────────
   - key: custom.proxmox.vm.network.in
     metadata:
       displayName: "Proxmox VM Network In"
@@ -185,8 +313,46 @@ metrics:
     metadata:
       displayName: "Proxmox VM Uptime"
       unit: Second
+  - key: custom.proxmox.vm.snapshot.count
+    metadata:
+      displayName: "Proxmox VM Snapshot Count"
+      unit: Count
 
-  # --- LXC: Status / CPU ---
+  # ── VM: Guest Agent ────────────────────────────────────────────────────────
+  - key: custom.proxmox.vm.agent.disk.used
+    metadata:
+      displayName: "Proxmox VM In-Guest Disk Used"
+      unit: Byte
+  - key: custom.proxmox.vm.agent.disk.total
+    metadata:
+      displayName: "Proxmox VM In-Guest Disk Total"
+      unit: Byte
+  - key: custom.proxmox.vm.agent.net.rx_bytes
+    metadata:
+      displayName: "Proxmox VM In-Guest NIC RX Bytes"
+      unit: Byte
+  - key: custom.proxmox.vm.agent.net.tx_bytes
+    metadata:
+      displayName: "Proxmox VM In-Guest NIC TX Bytes"
+      unit: Byte
+  - key: custom.proxmox.vm.agent.net.rx_errors
+    metadata:
+      displayName: "Proxmox VM In-Guest NIC RX Errors"
+      unit: Count
+  - key: custom.proxmox.vm.agent.net.tx_errors
+    metadata:
+      displayName: "Proxmox VM In-Guest NIC TX Errors"
+      unit: Count
+  - key: custom.proxmox.vm.agent.net.rx_dropped
+    metadata:
+      displayName: "Proxmox VM In-Guest NIC RX Dropped"
+      unit: Count
+  - key: custom.proxmox.vm.agent.net.tx_dropped
+    metadata:
+      displayName: "Proxmox VM In-Guest NIC TX Dropped"
+      unit: Count
+
+  # ── LXC: Status / CPU ──────────────────────────────────────────────────────
   - key: custom.proxmox.lxc.status
     metadata:
       displayName: "Proxmox LXC Status (1=running)"
@@ -200,7 +366,7 @@ metrics:
       displayName: "Proxmox LXC vCPU Count"
       unit: Count
 
-  # --- LXC: Memory ---
+  # ── LXC: Memory ────────────────────────────────────────────────────────────
   - key: custom.proxmox.lxc.memory.used
     metadata:
       displayName: "Proxmox LXC Memory Used"
@@ -209,8 +375,6 @@ metrics:
     metadata:
       displayName: "Proxmox LXC Memory Total"
       unit: Byte
-
-  # --- LXC: Swap ---
   - key: custom.proxmox.lxc.swap.used
     metadata:
       displayName: "Proxmox LXC Swap Used"
@@ -220,7 +384,7 @@ metrics:
       displayName: "Proxmox LXC Swap Total"
       unit: Byte
 
-  # --- LXC: Disk ---
+  # ── LXC: Disk / Network / Snapshots ───────────────────────────────────────
   - key: custom.proxmox.lxc.disk.read
     metadata:
       displayName: "Proxmox LXC Disk Read"
@@ -233,8 +397,6 @@ metrics:
     metadata:
       displayName: "Proxmox LXC Disk Size"
       unit: Byte
-
-  # --- LXC: Network ---
   - key: custom.proxmox.lxc.network.in
     metadata:
       displayName: "Proxmox LXC Network In"
@@ -243,8 +405,12 @@ metrics:
     metadata:
       displayName: "Proxmox LXC Network Out"
       unit: BitPerHour
+  - key: custom.proxmox.lxc.snapshot.count
+    metadata:
+      displayName: "Proxmox LXC Snapshot Count"
+      unit: Count
 
-  # --- Storage ---
+  # ── Storage ────────────────────────────────────────────────────────────────
   - key: custom.proxmox.storage.used
     metadata:
       displayName: "Proxmox Storage Used"
@@ -264,6 +430,10 @@ metrics:
   - key: custom.proxmox.storage.active
     metadata:
       displayName: "Proxmox Storage Active (1=yes)"
+      unit: Count
+  - key: custom.proxmox.storage.backup_count
+    metadata:
+      displayName: "Proxmox Storage Backup Count"
       unit: Count
 
 topology:
