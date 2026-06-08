@@ -8,7 +8,7 @@ python:
   runtime:
     module: proxmox_extension
     version:
-      min: "3.11"
+      min: "3.14"
   activation:
     remote:
       path: activationSchema.json
