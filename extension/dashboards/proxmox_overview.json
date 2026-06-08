@@ -1,385 +1,374 @@
 {
-  "version": 15,
-  "defaultTimeframe": {
-    "from": "now-1h",
-    "to": "now"
-  },
+  "version": 21,
   "variables": [
     {
       "key": "cluster_name",
-      "displayName": "Cluster",
-      "type": "QUERY",
-      "definition": {
-        "seriesResolution": "AUTO",
-        "queryDefinition": {
-          "type": "METRIC",
-          "metric": "custom.proxmox.cluster.nodes.total",
-          "dimensionKey": "cluster_name"
-        }
-      }
+      "visible": true,
+      "type": "query",
+      "version": 2,
+      "editable": true,
+      "input": "metrics\n| filter metric.key == \"custom.proxmox.cluster.nodes.total\"\n| filter isNotNull(cluster_name)\n| fields cluster_name\n| dedup cluster_name",
+      "multiple": false
     },
     {
       "key": "node_name",
-      "displayName": "Node",
-      "type": "QUERY",
-      "definition": {
-        "seriesResolution": "AUTO",
-        "queryDefinition": {
-          "type": "METRIC",
-          "metric": "custom.proxmox.node.cpu.usage",
-          "dimensionKey": "node_name"
-        }
-      }
+      "visible": true,
+      "type": "query",
+      "version": 2,
+      "editable": true,
+      "input": "metrics\n| filter metric.key == \"custom.proxmox.node.cpu.usage\"\n| filter isNotNull(node_name)\n| fields node_name\n| dedup node_name",
+      "multiple": true
     }
   ],
   "tiles": {
-    "0": {
+
+    "hdr_overview": {
       "type": "markdown",
-      "title": "",
-      "content": "# 🖥️ Proxmox VE — Cluster Overview\n**Cluster:** $cluster_name"
+      "content": "# 🖥️ Proxmox VE — Cluster Overview\nCluster: **$cluster_name** | Use the dropdowns above to filter by node."
     },
-    "1": {
-      "type": "data",
+
+    "tile_nodes_online": {
       "title": "Nodes Online",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.cluster.nodes.online:filter(eq(cluster_name,$cluster_name)):last",
-        "visualization": {
-          "type": "singleValue",
-          "singleValueConfig": {
-            "showTrend": false,
-            "showSparkLine": false
-          }
-        }
-      }
-    },
-    "2": {
       "type": "data",
-      "title": "Nodes Total",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.cluster.nodes.total:filter(eq(cluster_name,$cluster_name)):last",
-        "visualization": {
-          "type": "singleValue",
-          "singleValueConfig": {
-            "showTrend": false,
-            "showSparkLine": false
-          }
-        }
-      }
+      "query": "timeseries avg(`custom.proxmox.cluster.nodes.online`), by: {cluster_name}\n| filter cluster_name == $cluster_name",
+      "visualization": "singleValue",
+      "visualizationSettings": { "singleValue": { "showTrend": false, "showSparkLine": false } },
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
     },
-    "3": {
+
+    "tile_nodes_total": {
+      "title": "Nodes Total",
+      "type": "data",
+      "query": "timeseries avg(`custom.proxmox.cluster.nodes.total`), by: {cluster_name}\n| filter cluster_name == $cluster_name",
+      "visualization": "singleValue",
+      "visualizationSettings": { "singleValue": { "showTrend": false, "showSparkLine": false } },
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
+    },
+
+    "hdr_nodes": {
       "type": "markdown",
-      "title": "",
       "content": "---\n## 🗄️ Nodes"
     },
-    "4": {
-      "type": "data",
+
+    "tile_node_cpu": {
       "title": "Node CPU Usage (%)",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.cpu.usage:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
-    },
-    "5": {
       "type": "data",
-      "title": "Node Memory Used",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.memory.used:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries avg(`custom.proxmox.node.cpu.usage`), by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "6": {
+
+    "tile_node_loadavg": {
+      "title": "Node Load Average",
       "type": "data",
-      "title": "Node Memory Total",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.memory.total:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  avg1  = avg(`custom.proxmox.node.loadavg.1m`),\n  avg5  = avg(`custom.proxmox.node.loadavg.5m`),\n  avg15 = avg(`custom.proxmox.node.loadavg.15m`)\n}, by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "7": {
+
+    "tile_node_cpu_info": {
+      "title": "Node CPU / Socket Count",
       "type": "data",
-      "title": "Node Disk Used",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.disk.used:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  cpus    = avg(`custom.proxmox.node.cpu.count`),\n  sockets = avg(`custom.proxmox.node.cpu.sockets`)\n}, by: {node_name, cluster_name}, from: now()-5m\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))\n| fields node_name, cpus = arrayLast(cpus), sockets = arrayLast(sockets)",
+      "visualization": "table",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
     },
-    "8": {
+
+    "tile_node_memory": {
+      "title": "Node Memory (Used / Free / Total)",
       "type": "data",
-      "title": "Node Disk Total",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.disk.total:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  used  = avg(`custom.proxmox.node.memory.used`),\n  free  = avg(`custom.proxmox.node.memory.free`),\n  total = avg(`custom.proxmox.node.memory.total`)\n}, by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "9": {
+
+    "tile_node_swap": {
+      "title": "Node Swap (Used / Free / Total)",
       "type": "data",
-      "title": "Node Network In",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.network.in:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  used  = avg(`custom.proxmox.node.swap.used`),\n  free  = avg(`custom.proxmox.node.swap.free`),\n  total = avg(`custom.proxmox.node.swap.total`)\n}, by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "10": {
+
+    "tile_node_disk": {
+      "title": "Node Root Disk (Used / Avail / Total)",
       "type": "data",
-      "title": "Node Network Out",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.network.out:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  used  = max(`custom.proxmox.node.disk.used`),\n  avail = max(`custom.proxmox.node.disk.avail`),\n  total = max(`custom.proxmox.node.disk.total`)\n}, by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "11": {
+
+    "tile_node_network": {
+      "title": "Node Network In / Out",
       "type": "data",
-      "title": "Node Uptime",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.node.uptime:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  net_in  = avg(`custom.proxmox.node.network.in`),\n  net_out = avg(`custom.proxmox.node.network.out`)\n}, by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "12": {
+
+    "tile_node_uptime": {
+      "title": "Node Uptime (seconds)",
+      "type": "data",
+      "query": "timeseries max(`custom.proxmox.node.uptime`), by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
+    },
+
+    "tile_node_ksm": {
+      "title": "Node KSM Shared Memory",
+      "type": "data",
+      "query": "timeseries avg(`custom.proxmox.node.ksm.shared`), by: {node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
+    },
+
+    "hdr_disks": {
       "type": "markdown",
-      "title": "",
+      "content": "---\n## 💿 Physical Disks"
+    },
+
+    "tile_disk_smart": {
+      "title": "Physical Disk SMART Health (1=PASSED, 0=FAILED)",
+      "type": "data",
+      "query": "timeseries min(`custom.proxmox.node.disk.device.smart`), by: {disk_dev, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
+    },
+
+    "tile_disk_size": {
+      "title": "Physical Disk Sizes",
+      "type": "data",
+      "query": "timeseries max(`custom.proxmox.node.disk.device.size`), by: {disk_dev, node_name, cluster_name}, from: now()-5m\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))\n| fields disk_dev, node_name, size_bytes = arrayLast(`max(custom.proxmox.node.disk.device.size)`)",
+      "visualization": "table",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
+    },
+
+    "hdr_vms": {
+      "type": "markdown",
       "content": "---\n## 💻 Virtual Machines"
     },
-    "13": {
+
+    "tile_vm_status": {
+      "title": "VM Status (1=running, 0=stopped)",
       "type": "data",
+      "query": "timeseries min(`custom.proxmox.vm.status`), by: {vm_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
+    },
+
+    "tile_vm_cpu": {
       "title": "VM CPU Usage (%)",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.cpu.usage:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
-    },
-    "14": {
       "type": "data",
-      "title": "VM Memory Used",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.memory.used:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries avg(`custom.proxmox.vm.cpu.usage`), by: {vm_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "15": {
+
+    "tile_vm_memory": {
+      "title": "VM Memory Used vs Total",
       "type": "data",
-      "title": "VM Memory Total",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.memory.total:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  used  = avg(`custom.proxmox.vm.memory.used`),\n  total = avg(`custom.proxmox.vm.memory.total`)\n}, by: {vm_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "16": {
+
+    "tile_vm_balloon": {
+      "title": "VM Balloon Memory",
       "type": "data",
-      "title": "VM Disk Read",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.disk.read:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  current = avg(`custom.proxmox.vm.balloon.current`),\n  target  = avg(`custom.proxmox.vm.balloon.target`)\n}, by: {vm_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "17": {
+
+    "tile_vm_disk": {
+      "title": "VM Disk Read / Write",
       "type": "data",
-      "title": "VM Disk Write",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.disk.write:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  read  = avg(`custom.proxmox.vm.disk.read`),\n  write = avg(`custom.proxmox.vm.disk.write`)\n}, by: {vm_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "18": {
+
+    "tile_vm_network": {
+      "title": "VM Network In / Out",
       "type": "data",
-      "title": "VM Network In",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.network.in:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  net_in  = avg(`custom.proxmox.vm.network.in`),\n  net_out = avg(`custom.proxmox.vm.network.out`)\n}, by: {vm_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "19": {
+
+    "tile_vm_snapshot": {
+      "title": "VM Snapshot Table",
       "type": "data",
-      "title": "VM Network Out",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.network.out:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  status = min(`custom.proxmox.vm.status`),\n  cpu    = avg(`custom.proxmox.vm.cpu.usage`),\n  vcpus  = avg(`custom.proxmox.vm.cpu.count`),\n  mem    = avg(`custom.proxmox.vm.memory.used`),\n  maxmem = avg(`custom.proxmox.vm.memory.total`),\n  disk   = max(`custom.proxmox.vm.disk.size`),\n  netin  = avg(`custom.proxmox.vm.network.in`),\n  netout = avg(`custom.proxmox.vm.network.out`),\n  uptime = max(`custom.proxmox.vm.uptime`)\n}, by: {vm_name, node_name, cluster_name}, from: now()-5m\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))\n| fields vm_name, node_name,\n         running    = arrayLast(status),\n         cpu_pct    = arrayLast(cpu),\n         vcpus      = arrayLast(vcpus),\n         mem_used   = arrayLast(mem),\n         mem_total  = arrayLast(maxmem),\n         disk_size  = arrayLast(disk),\n         net_in     = arrayLast(netin),\n         net_out    = arrayLast(netout),\n         uptime_sec = arrayLast(uptime)",
+      "visualization": "table",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
     },
-    "20": {
-      "type": "data",
-      "title": "VM Uptime",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.vm.uptime:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
-    },
-    "21": {
+
+    "hdr_lxc": {
       "type": "markdown",
-      "title": "",
       "content": "---\n## 📦 LXC Containers"
     },
-    "22": {
+
+    "tile_lxc_status": {
+      "title": "LXC Status (1=running, 0=stopped)",
       "type": "data",
+      "query": "timeseries min(`custom.proxmox.lxc.status`), by: {lxc_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
+    },
+
+    "tile_lxc_cpu": {
       "title": "LXC CPU Usage (%)",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.cpu.usage:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
-    },
-    "23": {
       "type": "data",
-      "title": "LXC Memory Used",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.memory.used:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries avg(`custom.proxmox.lxc.cpu.usage`), by: {lxc_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "24": {
+
+    "tile_lxc_memory": {
+      "title": "LXC Memory Used vs Total",
       "type": "data",
-      "title": "LXC Memory Total",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.memory.total:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  used  = avg(`custom.proxmox.lxc.memory.used`),\n  total = avg(`custom.proxmox.lxc.memory.total`)\n}, by: {lxc_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "25": {
+
+    "tile_lxc_swap": {
+      "title": "LXC Swap Used vs Total",
       "type": "data",
-      "title": "LXC Disk Read",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.disk.read:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  used  = avg(`custom.proxmox.lxc.swap.used`),\n  total = avg(`custom.proxmox.lxc.swap.total`)\n}, by: {lxc_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "26": {
+
+    "tile_lxc_disk": {
+      "title": "LXC Disk Read / Write",
       "type": "data",
-      "title": "LXC Disk Write",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.disk.write:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  read  = avg(`custom.proxmox.lxc.disk.read`),\n  write = avg(`custom.proxmox.lxc.disk.write`)\n}, by: {lxc_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "27": {
+
+    "tile_lxc_network": {
+      "title": "LXC Network In / Out",
       "type": "data",
-      "title": "LXC Network In",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.network.in:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  net_in  = avg(`custom.proxmox.lxc.network.in`),\n  net_out = avg(`custom.proxmox.lxc.network.out`)\n}, by: {lxc_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "28": {
+
+    "tile_lxc_snapshot": {
+      "title": "LXC Snapshot Table",
       "type": "data",
-      "title": "LXC Network Out",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.lxc.network.out:filter(eq(cluster_name,$cluster_name)):splitBy(lxc_name):avg",
-        "visualization": {
-          "type": "lineChart"
-        }
-      }
+      "query": "timeseries {\n  status  = min(`custom.proxmox.lxc.status`),\n  cpu     = avg(`custom.proxmox.lxc.cpu.usage`),\n  vcpus   = avg(`custom.proxmox.lxc.cpu.count`),\n  mem     = avg(`custom.proxmox.lxc.memory.used`),\n  maxmem  = avg(`custom.proxmox.lxc.memory.total`),\n  swap    = avg(`custom.proxmox.lxc.swap.used`),\n  maxswap = avg(`custom.proxmox.lxc.swap.total`),\n  disk    = max(`custom.proxmox.lxc.disk.size`),\n  netin   = avg(`custom.proxmox.lxc.network.in`),\n  netout  = avg(`custom.proxmox.lxc.network.out`)\n}, by: {lxc_name, node_name, cluster_name}, from: now()-5m\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))\n| fields lxc_name, node_name,\n         running    = arrayLast(status),\n         cpu_pct    = arrayLast(cpu),\n         vcpus      = arrayLast(vcpus),\n         mem_used   = arrayLast(mem),\n         mem_total  = arrayLast(maxmem),\n         swap_used  = arrayLast(swap),\n         swap_total = arrayLast(maxswap),\n         disk_size  = arrayLast(disk),\n         net_in     = arrayLast(netin),\n         net_out    = arrayLast(netout)",
+      "visualization": "table",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
     },
-    "29": {
+
+    "hdr_storage": {
       "type": "markdown",
-      "title": "",
       "content": "---\n## 💾 Storage"
     },
-    "30": {
+
+    "tile_storage_chart": {
+      "title": "Storage Used Over Time",
       "type": "data",
-      "title": "Storage Used",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.storage.used:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries avg(`custom.proxmox.storage.used`), by: {storage_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "31": {
+
+    "tile_storage_avail": {
+      "title": "Storage Available Over Time",
       "type": "data",
-      "title": "Storage Total",
-      "queryConfig": {
-        "metricSelector": "custom.proxmox.storage.total:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries avg(`custom.proxmox.storage.avail`), by: {storage_name, node_name, cluster_name}\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))",
+      "visualization": "lineChart",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-1h", "maxResultMegaBytes": 100 }
     },
-    "32": {
+
+    "tile_storage_snapshot": {
+      "title": "Storage Snapshot Table",
       "type": "data",
-      "title": "Storage Utilization (%)",
-      "queryConfig": {
-        "metricSelector": "(custom.proxmox.storage.used:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name) / custom.proxmox.storage.total:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name)) * 100",
-        "visualization": {
-          "type": "barChart"
-        }
-      }
+      "query": "timeseries {\n  used    = max(`custom.proxmox.storage.used`),\n  total   = max(`custom.proxmox.storage.total`),\n  avail   = max(`custom.proxmox.storage.avail`),\n  enabled = min(`custom.proxmox.storage.enabled`),\n  active  = min(`custom.proxmox.storage.active`)\n}, by: {storage_name, node_name, cluster_name}, from: now()-5m\n| filter cluster_name == $cluster_name\n| filter isNull(array($node_name)[0]) or in(node_name, array($node_name))\n| fields storage_name, node_name,\n         used_bytes      = arrayLast(used),\n         total_bytes     = arrayLast(total),\n         avail_bytes     = arrayLast(avail),\n         utilization_pct = (arrayLast(used) / arrayLast(total)) * 100,\n         enabled         = arrayLast(enabled),\n         active          = arrayLast(active)",
+      "visualization": "table",
+      "visualizationSettings": {},
+      "querySettings": { "maxResultRecords": 1000, "defaultTimeframe": "now()-5m", "maxResultMegaBytes": 100 }
     }
+
   },
+
   "layouts": {
-    "0":  { "x": 0,  "y": 0,  "w": 24, "h": 2  },
-    "1":  { "x": 0,  "y": 2,  "w": 6,  "h": 3  },
-    "2":  { "x": 6,  "y": 2,  "w": 6,  "h": 3  },
-    "3":  { "x": 0,  "y": 5,  "w": 24, "h": 2  },
-    "4":  { "x": 0,  "y": 7,  "w": 12, "h": 4  },
-    "5":  { "x": 12, "y": 7,  "w": 12, "h": 4  },
-    "6":  { "x": 0,  "y": 11, "w": 8,  "h": 4  },
-    "7":  { "x": 8,  "y": 11, "w": 8,  "h": 4  },
-    "8":  { "x": 16, "y": 11, "w": 8,  "h": 4  },
-    "9":  { "x": 0,  "y": 15, "w": 12, "h": 4  },
-    "10": { "x": 12, "y": 15, "w": 12, "h": 4  },
-    "11": { "x": 0,  "y": 19, "w": 24, "h": 4  },
-    "12": { "x": 0,  "y": 23, "w": 24, "h": 2  },
-    "13": { "x": 0,  "y": 25, "w": 12, "h": 4  },
-    "14": { "x": 12, "y": 25, "w": 12, "h": 4  },
-    "15": { "x": 0,  "y": 29, "w": 8,  "h": 4  },
-    "16": { "x": 8,  "y": 29, "w": 8,  "h": 4  },
-    "17": { "x": 16, "y": 29, "w": 8,  "h": 4  },
-    "18": { "x": 0,  "y": 33, "w": 8,  "h": 4  },
-    "19": { "x": 8,  "y": 33, "w": 8,  "h": 4  },
-    "20": { "x": 16, "y": 33, "w": 8,  "h": 4  },
-    "21": { "x": 0,  "y": 37, "w": 24, "h": 2  },
-    "22": { "x": 0,  "y": 39, "w": 12, "h": 4  },
-    "23": { "x": 12, "y": 39, "w": 12, "h": 4  },
-    "24": { "x": 0,  "y": 43, "w": 8,  "h": 4  },
-    "25": { "x": 8,  "y": 43, "w": 8,  "h": 4  },
-    "26": { "x": 16, "y": 43, "w": 8,  "h": 4  },
-    "27": { "x": 0,  "y": 47, "w": 12, "h": 4  },
-    "28": { "x": 12, "y": 47, "w": 12, "h": 4  },
-    "29": { "x": 0,  "y": 51, "w": 24, "h": 2  },
-    "30": { "x": 0,  "y": 53, "w": 8,  "h": 4  },
-    "31": { "x": 8,  "y": 53, "w": 8,  "h": 4  },
-    "32": { "x": 16, "y": 53, "w": 8,  "h": 4  }
-  }
+    "hdr_overview":        { "x": 0,  "y": 0,  "w": 24, "h": 2 },
+    "tile_nodes_online":   { "x": 0,  "y": 2,  "w": 6,  "h": 3 },
+    "tile_nodes_total":    { "x": 6,  "y": 2,  "w": 6,  "h": 3 },
+
+    "hdr_nodes":           { "x": 0,  "y": 5,  "w": 24, "h": 2 },
+    "tile_node_cpu":       { "x": 0,  "y": 7,  "w": 12, "h": 4 },
+    "tile_node_loadavg":   { "x": 12, "y": 7,  "w": 12, "h": 4 },
+    "tile_node_cpu_info":  { "x": 0,  "y": 11, "w": 6,  "h": 4 },
+    "tile_node_uptime":    { "x": 6,  "y": 11, "w": 6,  "h": 4 },
+    "tile_node_ksm":       { "x": 12, "y": 11, "w": 12, "h": 4 },
+    "tile_node_memory":    { "x": 0,  "y": 15, "w": 12, "h": 4 },
+    "tile_node_swap":      { "x": 12, "y": 15, "w": 12, "h": 4 },
+    "tile_node_disk":      { "x": 0,  "y": 19, "w": 12, "h": 4 },
+    "tile_node_network":   { "x": 12, "y": 19, "w": 12, "h": 4 },
+
+    "hdr_disks":           { "x": 0,  "y": 23, "w": 24, "h": 2 },
+    "tile_disk_smart":     { "x": 0,  "y": 25, "w": 12, "h": 4 },
+    "tile_disk_size":      { "x": 12, "y": 25, "w": 12, "h": 4 },
+
+    "hdr_vms":             { "x": 0,  "y": 29, "w": 24, "h": 2 },
+    "tile_vm_status":      { "x": 0,  "y": 31, "w": 12, "h": 4 },
+    "tile_vm_cpu":         { "x": 12, "y": 31, "w": 12, "h": 4 },
+    "tile_vm_memory":      { "x": 0,  "y": 35, "w": 12, "h": 4 },
+    "tile_vm_balloon":     { "x": 12, "y": 35, "w": 12, "h": 4 },
+    "tile_vm_disk":        { "x": 0,  "y": 39, "w": 12, "h": 4 },
+    "tile_vm_network":     { "x": 12, "y": 39, "w": 12, "h": 4 },
+    "tile_vm_snapshot":    { "x": 0,  "y": 43, "w": 24, "h": 6 },
+
+    "hdr_lxc":             { "x": 0,  "y": 49, "w": 24, "h": 2 },
+    "tile_lxc_status":     { "x": 0,  "y": 51, "w": 12, "h": 4 },
+    "tile_lxc_cpu":        { "x": 12, "y": 51, "w": 12, "h": 4 },
+    "tile_lxc_memory":     { "x": 0,  "y": 55, "w": 12, "h": 4 },
+    "tile_lxc_swap":       { "x": 12, "y": 55, "w": 12, "h": 4 },
+    "tile_lxc_disk":       { "x": 0,  "y": 59, "w": 12, "h": 4 },
+    "tile_lxc_network":    { "x": 12, "y": 59, "w": 12, "h": 4 },
+    "tile_lxc_snapshot":   { "x": 0,  "y": 63, "w": 24, "h": 6 },
+
+    "hdr_storage":             { "x": 0,  "y": 69, "w": 24, "h": 2 },
+    "tile_storage_chart":      { "x": 0,  "y": 71, "w": 12, "h": 4 },
+    "tile_storage_avail":      { "x": 12, "y": 71, "w": 12, "h": 4 },
+    "tile_storage_snapshot":   { "x": 0,  "y": 75, "w": 24, "h": 6 }
+  },
+
+  "importedWithCode": false,
+  "settings": {},
+  "annotations": []
 }

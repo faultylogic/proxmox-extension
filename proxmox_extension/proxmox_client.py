@@ -24,6 +24,9 @@ class ProxmoxClient:
     def get_cluster_status(self) -> List[Dict]:
         return self._get("/cluster/status")
 
+    def get_cluster_resources(self) -> List[Dict]:
+        return self._get("/cluster/resources")
+
     def get_nodes(self) -> List[Dict]:
         return self._get("/nodes")
 
@@ -44,3 +47,9 @@ class ProxmoxClient:
 
     def get_storage(self, node: str) -> List[Dict]:
         return self._get(f"/nodes/{node}/storage")
+
+    def get_storage_status(self, node: str, storage: str) -> dict:
+        return self._get(f"/nodes/{node}/storage/{storage}/status")
+
+    def get_node_disks(self, node: str) -> List[Dict]:
+        return self._get(f"/nodes/{node}/disks/list")
