@@ -1,7 +1,7 @@
 {
   "version": 15,
   "defaultTimeframe": {
-    "from": "now-2h",
+    "from": "now-1h",
     "to": "now"
   },
   "variables": [
@@ -36,7 +36,7 @@
     "0": {
       "type": "markdown",
       "title": "",
-      "content": "## Proxmox VE — Cluster Overview\nCluster: **$cluster_name**"
+      "content": "# 🖥️ Proxmox VE — Cluster Overview\n**Cluster:** $cluster_name"
     },
     "1": {
       "type": "data",
@@ -67,6 +67,11 @@
       }
     },
     "3": {
+      "type": "markdown",
+      "title": "",
+      "content": "---\n## 🗄️ Nodes"
+    },
+    "4": {
       "type": "data",
       "title": "Node CPU Usage (%)",
       "queryConfig": {
@@ -76,7 +81,7 @@
         }
       }
     },
-    "4": {
+    "5": {
       "type": "data",
       "title": "Node Memory Used",
       "queryConfig": {
@@ -86,7 +91,7 @@
         }
       }
     },
-    "5": {
+    "6": {
       "type": "data",
       "title": "Node Memory Total",
       "queryConfig": {
@@ -96,17 +101,27 @@
         }
       }
     },
-    "6": {
+    "7": {
       "type": "data",
-      "title": "Node Disk Used vs Total",
+      "title": "Node Disk Used",
       "queryConfig": {
-        "metricSelector": "custom.proxmox.node.disk.used:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last,custom.proxmox.node.disk.total:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
+        "metricSelector": "custom.proxmox.node.disk.used:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
         "visualization": {
           "type": "barChart"
         }
       }
     },
-    "7": {
+    "8": {
+      "type": "data",
+      "title": "Node Disk Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.disk.total:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "9": {
       "type": "data",
       "title": "Node Network In",
       "queryConfig": {
@@ -116,7 +131,7 @@
         }
       }
     },
-    "8": {
+    "10": {
       "type": "data",
       "title": "Node Network Out",
       "queryConfig": {
@@ -126,12 +141,22 @@
         }
       }
     },
-    "9": {
+    "11": {
+      "type": "data",
+      "title": "Node Uptime",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.node.uptime:filter(eq(cluster_name,$cluster_name)):splitBy(node_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "12": {
       "type": "markdown",
       "title": "",
-      "content": "## Virtual Machines (QEMU)"
+      "content": "---\n## 💻 Virtual Machines"
     },
-    "10": {
+    "13": {
       "type": "data",
       "title": "VM CPU Usage (%)",
       "queryConfig": {
@@ -141,7 +166,7 @@
         }
       }
     },
-    "11": {
+    "14": {
       "type": "data",
       "title": "VM Memory Used",
       "queryConfig": {
@@ -151,7 +176,7 @@
         }
       }
     },
-    "12": {
+    "15": {
       "type": "data",
       "title": "VM Memory Total",
       "queryConfig": {
@@ -161,7 +186,7 @@
         }
       }
     },
-    "13": {
+    "16": {
       "type": "data",
       "title": "VM Disk Read",
       "queryConfig": {
@@ -171,7 +196,7 @@
         }
       }
     },
-    "14": {
+    "17": {
       "type": "data",
       "title": "VM Disk Write",
       "queryConfig": {
@@ -181,7 +206,7 @@
         }
       }
     },
-    "15": {
+    "18": {
       "type": "data",
       "title": "VM Network In",
       "queryConfig": {
@@ -191,7 +216,7 @@
         }
       }
     },
-    "16": {
+    "19": {
       "type": "data",
       "title": "VM Network Out",
       "queryConfig": {
@@ -201,12 +226,22 @@
         }
       }
     },
-    "17": {
+    "20": {
+      "type": "data",
+      "title": "VM Uptime",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.vm.uptime:filter(eq(cluster_name,$cluster_name)):splitBy(vm_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "21": {
       "type": "markdown",
       "title": "",
-      "content": "## LXC Containers"
+      "content": "---\n## 📦 LXC Containers"
     },
-    "18": {
+    "22": {
       "type": "data",
       "title": "LXC CPU Usage (%)",
       "queryConfig": {
@@ -216,7 +251,7 @@
         }
       }
     },
-    "19": {
+    "23": {
       "type": "data",
       "title": "LXC Memory Used",
       "queryConfig": {
@@ -226,7 +261,7 @@
         }
       }
     },
-    "20": {
+    "24": {
       "type": "data",
       "title": "LXC Memory Total",
       "queryConfig": {
@@ -236,7 +271,7 @@
         }
       }
     },
-    "21": {
+    "25": {
       "type": "data",
       "title": "LXC Disk Read",
       "queryConfig": {
@@ -246,7 +281,7 @@
         }
       }
     },
-    "22": {
+    "26": {
       "type": "data",
       "title": "LXC Disk Write",
       "queryConfig": {
@@ -256,7 +291,7 @@
         }
       }
     },
-    "23": {
+    "27": {
       "type": "data",
       "title": "LXC Network In",
       "queryConfig": {
@@ -266,7 +301,7 @@
         }
       }
     },
-    "24": {
+    "28": {
       "type": "data",
       "title": "LXC Network Out",
       "queryConfig": {
@@ -276,22 +311,32 @@
         }
       }
     },
-    "25": {
+    "29": {
       "type": "markdown",
       "title": "",
-      "content": "## Storage"
+      "content": "---\n## 💾 Storage"
     },
-    "26": {
+    "30": {
       "type": "data",
-      "title": "Storage Used vs Total",
+      "title": "Storage Used",
       "queryConfig": {
-        "metricSelector": "custom.proxmox.storage.used:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last,custom.proxmox.storage.total:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last",
+        "metricSelector": "custom.proxmox.storage.used:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last",
         "visualization": {
           "type": "barChart"
         }
       }
     },
-    "27": {
+    "31": {
+      "type": "data",
+      "title": "Storage Total",
+      "queryConfig": {
+        "metricSelector": "custom.proxmox.storage.total:filter(eq(cluster_name,$cluster_name)):splitBy(storage_name,node_name):last",
+        "visualization": {
+          "type": "barChart"
+        }
+      }
+    },
+    "32": {
       "type": "data",
       "title": "Storage Utilization (%)",
       "queryConfig": {
@@ -303,33 +348,38 @@
     }
   },
   "layouts": {
-    "0": { "x": 0, "y": 0, "w": 24, "h": 2 },
-    "1": { "x": 0, "y": 2, "w": 6, "h": 3 },
-    "2": { "x": 6, "y": 2, "w": 6, "h": 3 },
-    "3": { "x": 0, "y": 5, "w": 12, "h": 4 },
-    "4": { "x": 12, "y": 5, "w": 12, "h": 4 },
-    "5": { "x": 0, "y": 9, "w": 12, "h": 4 },
-    "6": { "x": 12, "y": 9, "w": 12, "h": 4 },
-    "7": { "x": 0, "y": 13, "w": 12, "h": 4 },
-    "8": { "x": 12, "y": 13, "w": 12, "h": 4 },
-    "9": { "x": 0, "y": 17, "w": 24, "h": 2 },
-    "10": { "x": 0, "y": 19, "w": 8, "h": 4 },
-    "11": { "x": 8, "y": 19, "w": 8, "h": 4 },
-    "12": { "x": 16, "y": 19, "w": 8, "h": 4 },
-    "13": { "x": 0, "y": 23, "w": 6, "h": 4 },
-    "14": { "x": 6, "y": 23, "w": 6, "h": 4 },
-    "15": { "x": 12, "y": 23, "w": 6, "h": 4 },
-    "16": { "x": 18, "y": 23, "w": 6, "h": 4 },
-    "17": { "x": 0, "y": 27, "w": 24, "h": 2 },
-    "18": { "x": 0, "y": 29, "w": 8, "h": 4 },
-    "19": { "x": 8, "y": 29, "w": 8, "h": 4 },
-    "20": { "x": 16, "y": 29, "w": 8, "h": 4 },
-    "21": { "x": 0, "y": 33, "w": 6, "h": 4 },
-    "22": { "x": 6, "y": 33, "w": 6, "h": 4 },
-    "23": { "x": 12, "y": 33, "w": 6, "h": 4 },
-    "24": { "x": 18, "y": 33, "w": 6, "h": 4 },
-    "25": { "x": 0, "y": 37, "w": 24, "h": 2 },
-    "26": { "x": 0, "y": 39, "w": 12, "h": 5 },
-    "27": { "x": 12, "y": 39, "w": 12, "h": 5 }
+    "0":  { "x": 0,  "y": 0,  "w": 24, "h": 2  },
+    "1":  { "x": 0,  "y": 2,  "w": 6,  "h": 3  },
+    "2":  { "x": 6,  "y": 2,  "w": 6,  "h": 3  },
+    "3":  { "x": 0,  "y": 5,  "w": 24, "h": 2  },
+    "4":  { "x": 0,  "y": 7,  "w": 12, "h": 4  },
+    "5":  { "x": 12, "y": 7,  "w": 12, "h": 4  },
+    "6":  { "x": 0,  "y": 11, "w": 8,  "h": 4  },
+    "7":  { "x": 8,  "y": 11, "w": 8,  "h": 4  },
+    "8":  { "x": 16, "y": 11, "w": 8,  "h": 4  },
+    "9":  { "x": 0,  "y": 15, "w": 12, "h": 4  },
+    "10": { "x": 12, "y": 15, "w": 12, "h": 4  },
+    "11": { "x": 0,  "y": 19, "w": 24, "h": 4  },
+    "12": { "x": 0,  "y": 23, "w": 24, "h": 2  },
+    "13": { "x": 0,  "y": 25, "w": 12, "h": 4  },
+    "14": { "x": 12, "y": 25, "w": 12, "h": 4  },
+    "15": { "x": 0,  "y": 29, "w": 8,  "h": 4  },
+    "16": { "x": 8,  "y": 29, "w": 8,  "h": 4  },
+    "17": { "x": 16, "y": 29, "w": 8,  "h": 4  },
+    "18": { "x": 0,  "y": 33, "w": 8,  "h": 4  },
+    "19": { "x": 8,  "y": 33, "w": 8,  "h": 4  },
+    "20": { "x": 16, "y": 33, "w": 8,  "h": 4  },
+    "21": { "x": 0,  "y": 37, "w": 24, "h": 2  },
+    "22": { "x": 0,  "y": 39, "w": 12, "h": 4  },
+    "23": { "x": 12, "y": 39, "w": 12, "h": 4  },
+    "24": { "x": 0,  "y": 43, "w": 8,  "h": 4  },
+    "25": { "x": 8,  "y": 43, "w": 8,  "h": 4  },
+    "26": { "x": 16, "y": 43, "w": 8,  "h": 4  },
+    "27": { "x": 0,  "y": 47, "w": 12, "h": 4  },
+    "28": { "x": 12, "y": 47, "w": 12, "h": 4  },
+    "29": { "x": 0,  "y": 51, "w": 24, "h": 2  },
+    "30": { "x": 0,  "y": 53, "w": 8,  "h": 4  },
+    "31": { "x": 8,  "y": 53, "w": 8,  "h": 4  },
+    "32": { "x": 16, "y": 53, "w": 8,  "h": 4  }
   }
 }
