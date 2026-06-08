@@ -133,6 +133,9 @@ topology:
       rules:
         - idPattern: "proxmox-cluster-{cluster_name}"
           instanceNamePattern: "{cluster_name}"
+          sources:
+            - sourceType: Metrics
+              condition: "$prefix(custom.proxmox.cluster)"
           attributes:
             - pattern: "{cluster_name}"
               key: cluster_name
@@ -142,6 +145,9 @@ topology:
       rules:
         - idPattern: "proxmox-node-{node_name}"
           instanceNamePattern: "{node_name}"
+          sources:
+            - sourceType: Metrics
+              condition: "$prefix(custom.proxmox.node)"
           attributes:
             - pattern: "{node_name}"
               key: node_name
@@ -154,6 +160,9 @@ topology:
       rules:
         - idPattern: "proxmox-vm-{vmid}"
           instanceNamePattern: "{vm_name}"
+          sources:
+            - sourceType: Metrics
+              condition: "$prefix(custom.proxmox.vm)"
           attributes:
             - pattern: "{vmid}"
               key: vmid
@@ -169,6 +178,9 @@ topology:
       rules:
         - idPattern: "proxmox-lxc-{vmid}"
           instanceNamePattern: "{lxc_name}"
+          sources:
+            - sourceType: Metrics
+              condition: "$prefix(custom.proxmox.lxc)"
           attributes:
             - pattern: "{vmid}"
               key: vmid
@@ -184,6 +196,9 @@ topology:
       rules:
         - idPattern: "proxmox-storage-{node_name}-{storage_name}"
           instanceNamePattern: "{storage_name} ({node_name})"
+          sources:
+            - sourceType: Metrics
+              condition: "$prefix(custom.proxmox.storage)"
           attributes:
             - pattern: "{storage_name}"
               key: storage_name
@@ -198,33 +213,25 @@ topology:
       toType: proxmox:cluster
       sources:
         - sourceType: Metrics
-          mappings:
-            - fromDimension: cluster_name
-              toAttribute: cluster_name
+          condition: "$prefix(custom.proxmox.node)"
     - typeOfRelation: RUNS_ON
       fromType: proxmox:vm
       toType: proxmox:node
       sources:
         - sourceType: Metrics
-          mappings:
-            - fromDimension: node_name
-              toAttribute: node_name
+          condition: "$prefix(custom.proxmox.vm)"
     - typeOfRelation: RUNS_ON
       fromType: proxmox:lxc
       toType: proxmox:node
       sources:
         - sourceType: Metrics
-          mappings:
-            - fromDimension: node_name
-              toAttribute: node_name
+          condition: "$prefix(custom.proxmox.lxc)"
     - typeOfRelation: CHILD_OF
       fromType: proxmox:storage
       toType: proxmox:node
       sources:
         - sourceType: Metrics
-          mappings:
-            - fromDimension: node_name
-              toAttribute: node_name
+          condition: "$prefix(custom.proxmox.storage)"
 
 dashboards:
   - path: dashboards/proxmox_overview.json
