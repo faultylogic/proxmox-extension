@@ -1,5 +1,5 @@
 name: custom:proxmox
-version: "1.1.1"
+version: "1.1.2"
 minDynatraceVersion: "1.333"
 author:
   name: Goulet
@@ -240,6 +240,46 @@ metrics:
       displayName: "Proxmox Node Tasks Running"
       unit: Count
 
+  # ── Node: CPU iowait (rrddata) ─────────────────────────────────────────────
+  - key: custom.proxmox.node.cpu.iowait
+    metadata:
+      displayName: "Proxmox Node CPU iowait"
+      unit: Percent
+
+  # ── Node: Memory available (rrddata) ───────────────────────────────────────
+  - key: custom.proxmox.node.memory.available
+    metadata:
+      displayName: "Proxmox Node Memory Available (incl. cache)"
+      unit: Byte
+
+  # ── Node: ZFS ARC size (rrddata) ───────────────────────────────────────────
+  - key: custom.proxmox.node.zfs.arcsize
+    metadata:
+      displayName: "Proxmox Node ZFS ARC Size"
+      unit: Byte
+
+  # ── Node: Linux PSI pressure (rrddata) ─────────────────────────────────────
+  - key: custom.proxmox.node.pressure.cpu.some
+    metadata:
+      displayName: "Proxmox Node Pressure CPU Some"
+      unit: Percent
+  - key: custom.proxmox.node.pressure.io.some
+    metadata:
+      displayName: "Proxmox Node Pressure IO Some"
+      unit: Percent
+  - key: custom.proxmox.node.pressure.io.full
+    metadata:
+      displayName: "Proxmox Node Pressure IO Full"
+      unit: Percent
+  - key: custom.proxmox.node.pressure.memory.some
+    metadata:
+      displayName: "Proxmox Node Pressure Memory Some"
+      unit: Percent
+  - key: custom.proxmox.node.pressure.memory.full
+    metadata:
+      displayName: "Proxmox Node Pressure Memory Full"
+      unit: Percent
+
   # ── Node: Physical Disks ───────────────────────────────────────────────────
   - key: custom.proxmox.node.disk.device.size
     metadata:
@@ -316,6 +356,68 @@ metrics:
   - key: custom.proxmox.vm.snapshot.count
     metadata:
       displayName: "Proxmox VM Snapshot Count"
+      unit: Count
+
+  # ── VM: RRD — actual disk usage + host memory ─────────────────────────────
+  - key: custom.proxmox.vm.disk.used
+    metadata:
+      displayName: "Proxmox VM Disk Used (actual)"
+      unit: Byte
+  - key: custom.proxmox.vm.memory.host
+    metadata:
+      displayName: "Proxmox VM Memory Used by Host (balloon)"
+      unit: Byte
+
+  # ── VM: Linux PSI pressure (rrddata) ───────────────────────────────────────
+  - key: custom.proxmox.vm.pressure.cpu.some
+    metadata:
+      displayName: "Proxmox VM Pressure CPU Some"
+      unit: Percent
+  - key: custom.proxmox.vm.pressure.cpu.full
+    metadata:
+      displayName: "Proxmox VM Pressure CPU Full"
+      unit: Percent
+  - key: custom.proxmox.vm.pressure.io.some
+    metadata:
+      displayName: "Proxmox VM Pressure IO Some"
+      unit: Percent
+  - key: custom.proxmox.vm.pressure.memory.some
+    metadata:
+      displayName: "Proxmox VM Pressure Memory Some"
+      unit: Percent
+  - key: custom.proxmox.vm.pressure.memory.full
+    metadata:
+      displayName: "Proxmox VM Pressure Memory Full"
+      unit: Percent
+
+  # ── VM: Config (configured limits) ─────────────────────────────────────────
+  - key: custom.proxmox.vm.config.cores
+    metadata:
+      displayName: "Proxmox VM Configured Cores"
+      unit: Count
+  - key: custom.proxmox.vm.config.sockets
+    metadata:
+      displayName: "Proxmox VM Configured CPU Sockets"
+      unit: Count
+  - key: custom.proxmox.vm.config.memory_mib
+    metadata:
+      displayName: "Proxmox VM Configured Memory (MiB)"
+      unit: Count
+  - key: custom.proxmox.vm.config.balloon_mib
+    metadata:
+      displayName: "Proxmox VM Configured Balloon Min (MiB)"
+      unit: Count
+  - key: custom.proxmox.vm.config.cpulimit
+    metadata:
+      displayName: "Proxmox VM CPU Limit"
+      unit: Count
+  - key: custom.proxmox.vm.config.cpuunits
+    metadata:
+      displayName: "Proxmox VM CPU Units (priority)"
+      unit: Count
+  - key: custom.proxmox.vm.config.onboot
+    metadata:
+      displayName: "Proxmox VM Start on Boot (1=yes)"
       unit: Count
 
   # ── VM: Guest Agent ────────────────────────────────────────────────────────
@@ -408,6 +510,68 @@ metrics:
   - key: custom.proxmox.lxc.snapshot.count
     metadata:
       displayName: "Proxmox LXC Snapshot Count"
+      unit: Count
+
+  # ── LXC: RRD — actual disk usage + host memory ────────────────────────────
+  - key: custom.proxmox.lxc.disk.used
+    metadata:
+      displayName: "Proxmox LXC Disk Used (actual)"
+      unit: Byte
+  - key: custom.proxmox.lxc.memory.host
+    metadata:
+      displayName: "Proxmox LXC Memory Used by Host"
+      unit: Byte
+
+  # ── LXC: Linux PSI pressure (rrddata) ──────────────────────────────────────
+  - key: custom.proxmox.lxc.pressure.cpu.some
+    metadata:
+      displayName: "Proxmox LXC Pressure CPU Some"
+      unit: Percent
+  - key: custom.proxmox.lxc.pressure.cpu.full
+    metadata:
+      displayName: "Proxmox LXC Pressure CPU Full"
+      unit: Percent
+  - key: custom.proxmox.lxc.pressure.io.some
+    metadata:
+      displayName: "Proxmox LXC Pressure IO Some"
+      unit: Percent
+  - key: custom.proxmox.lxc.pressure.memory.some
+    metadata:
+      displayName: "Proxmox LXC Pressure Memory Some"
+      unit: Percent
+  - key: custom.proxmox.lxc.pressure.memory.full
+    metadata:
+      displayName: "Proxmox LXC Pressure Memory Full"
+      unit: Percent
+
+  # ── LXC: Config (configured limits) ────────────────────────────────────────
+  - key: custom.proxmox.lxc.config.cores
+    metadata:
+      displayName: "Proxmox LXC Configured Cores"
+      unit: Count
+  - key: custom.proxmox.lxc.config.memory_mib
+    metadata:
+      displayName: "Proxmox LXC Configured Memory (MiB)"
+      unit: Count
+  - key: custom.proxmox.lxc.config.swap_mib
+    metadata:
+      displayName: "Proxmox LXC Configured Swap (MiB)"
+      unit: Count
+  - key: custom.proxmox.lxc.config.cpulimit
+    metadata:
+      displayName: "Proxmox LXC CPU Limit"
+      unit: Count
+  - key: custom.proxmox.lxc.config.cpuunits
+    metadata:
+      displayName: "Proxmox LXC CPU Units (priority)"
+      unit: Count
+  - key: custom.proxmox.lxc.config.onboot
+    metadata:
+      displayName: "Proxmox LXC Start on Boot (1=yes)"
+      unit: Count
+  - key: custom.proxmox.lxc.config.unprivileged
+    metadata:
+      displayName: "Proxmox LXC Unprivileged (1=yes)"
       unit: Count
 
   # ── Storage ────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict, List, Optional
 from dynatrace_extension import Extension
 from .proxmox_client import ProxmoxClient
 
@@ -9,6 +10,15 @@ MONITORED_SERVICES = {
     "pve-cluster", "pvedaemon", "pveproxy", "pvestatd",
     "pvescheduler", "corosync", "pve-firewall",
 }
+
+
+def _latest(rrddata: List[Dict], field: str) -> Optional[float]:
+    """Return the most recent non-null value for a field from rrddata."""
+    for entry in reversed(rrddata):
+        val = entry.get(field)
+        if val is not None:
+            return float(val)
+    return None
 
 
 class ProxmoxExtension(Extension):
@@ -59,9 +69,8 @@ class ProxmoxExtension(Extension):
     def _collect_ha(self, client: ProxmoxClient, cluster_name: str):
         try:
             dims = {"cluster_name": cluster_name}
-            ha_current = client.get_ha_status()
             quorate = 0
-            for item in ha_current:
+            for item in client.get_ha_status():
                 if item.get("type") == "quorum":
                     quorate = 1 if item.get("quorate", 0) else 0
             self.report_metric("custom.proxmox.cluster.ha.quorate", quorate, dims)
@@ -85,16 +94,11 @@ class ProxmoxExtension(Extension):
             for job in client.get_replication_jobs():
                 job_id = job.get("id", "unknown")
                 rdims = {"replication_job": job_id, "cluster_name": cluster_name}
-                self.report_metric(
-                    "custom.proxmox.cluster.replication.fail_count",
-                    job.get("fail_count", 0),
-                    rdims,
-                )
+                self.report_metric("custom.proxmox.cluster.replication.fail_count", job.get("fail_count", 0), rdims)
                 duration = job.get("duration", 0)
                 if duration:
                     self.report_metric("custom.proxmox.cluster.replication.duration", duration, rdims)
-                error = 1 if job.get("error") else 0
-                self.report_metric("custom.proxmox.cluster.replication.error", error, rdims)
+                self.report_metric("custom.proxmox.cluster.replication.error", 1 if job.get("error") else 0, rdims)
         except Exception:
             logger.exception("Error collecting replication metrics")
 
@@ -103,10 +107,9 @@ class ProxmoxExtension(Extension):
     def _collect_backups(self, client: ProxmoxClient, cluster_name: str):
         try:
             dims = {"cluster_name": cluster_name}
-            not_backed_up = client.get_not_backed_up()
             self.report_metric(
                 "custom.proxmox.cluster.backup.unprotected_guests",
-                len(not_backed_up),
+                len(client.get_not_backed_up()),
                 dims,
             )
         except Exception:
@@ -140,17 +143,12 @@ class ProxmoxExtension(Extension):
             monmap = status.get("monmap", {})
             self.report_metric("custom.proxmox.ceph.mon.count", monmap.get("num_mons", 0), dims)
 
-            # Ceph flags — noout/noin/pause are operationally critical
             try:
                 for flag in client.get_ceph_flags():
                     name = flag.get("name", "")
                     if name in ("noout", "noin", "nodown", "pause", "full", "nearfull"):
                         fdims = {"ceph_flag": name, "cluster_name": cluster_name}
-                        self.report_metric(
-                            "custom.proxmox.ceph.flag",
-                            1 if flag.get("value") else 0,
-                            fdims,
-                        )
+                        self.report_metric("custom.proxmox.ceph.flag", 1 if flag.get("value") else 0, fdims)
             except Exception:
                 logger.debug("Ceph flags not available")
 
@@ -198,7 +196,7 @@ class ProxmoxExtension(Extension):
                 self.report_metric("custom.proxmox.node.disk.total", disk.get("total", 0), dims)
                 self.report_metric("custom.proxmox.node.disk.avail", disk.get("avail", 0), dims)
 
-                # Network (aggregate from node list)
+                # Network (aggregate)
                 self.report_metric("custom.proxmox.node.network.in", node_summary.get("netin", 0), dims)
                 self.report_metric("custom.proxmox.node.network.out", node_summary.get("netout", 0), dims)
 
@@ -208,19 +206,14 @@ class ProxmoxExtension(Extension):
                 if ksm:
                     self.report_metric("custom.proxmox.node.ksm.shared", ksm.get("shared", 0), dims)
 
-                # Services
+                # RRD — metrics only available here
+                self._collect_node_rrddata(client, node, cluster_name)
+
+                # Services / subscription / updates / tasks / netstat
                 self._collect_node_services(client, node, cluster_name)
-
-                # Subscription
                 self._collect_node_subscription(client, node, cluster_name)
-
-                # Pending updates
                 self._collect_node_updates(client, node, cluster_name)
-
-                # Per-VM network throughput (host tap level)
                 self._collect_node_netstat(client, node, cluster_name)
-
-                # Tasks — count errors in last 100
                 self._collect_node_tasks(client, node, cluster_name)
 
                 # Physical disks + SMART
@@ -233,6 +226,42 @@ class ProxmoxExtension(Extension):
 
             except Exception:
                 logger.exception("Error collecting metrics for node %s", node)
+
+    def _collect_node_rrddata(self, client: ProxmoxClient, node: str, cluster_name: str):
+        try:
+            rrd = client.get_node_rrddata(node)
+            if not rrd:
+                return
+            dims = {"node_name": node, "cluster_name": cluster_name}
+
+            # iowait — not available from /nodes/{node}/status
+            iowait = _latest(rrd, "iowait")
+            if iowait is not None:
+                self.report_metric("custom.proxmox.node.cpu.iowait", iowait * 100, dims)
+
+            # Memory available (different from free — accounts for cache)
+            memavail = _latest(rrd, "memavailable")
+            if memavail is not None:
+                self.report_metric("custom.proxmox.node.memory.available", memavail, dims)
+
+            # ZFS ARC size
+            arcsize = _latest(rrd, "arcsize")
+            if arcsize is not None:
+                self.report_metric("custom.proxmox.node.zfs.arcsize", arcsize, dims)
+
+            # Linux PSI (Pressure Stall Information) — kernel 4.20+
+            for field, key in (
+                ("pressurecpusome",    "custom.proxmox.node.pressure.cpu.some"),
+                ("pressureiosome",     "custom.proxmox.node.pressure.io.some"),
+                ("pressureiofull",     "custom.proxmox.node.pressure.io.full"),
+                ("pressurememorysome", "custom.proxmox.node.pressure.memory.some"),
+                ("pressurememoryfull", "custom.proxmox.node.pressure.memory.full"),
+            ):
+                val = _latest(rrd, field)
+                if val is not None:
+                    self.report_metric(key, val * 100, dims)
+        except Exception:
+            logger.debug("Could not collect rrddata for node %s", node)
 
     def _collect_node_services(self, client: ProxmoxClient, node: str, cluster_name: str):
         try:
@@ -249,8 +278,7 @@ class ProxmoxExtension(Extension):
     def _collect_node_subscription(self, client: ProxmoxClient, node: str, cluster_name: str):
         try:
             sub = client.get_node_subscription(node)
-            status_str = sub.get("status", "notfound")
-            active = 1 if status_str == "active" else 0
+            active = 1 if sub.get("status", "notfound") == "active" else 0
             dims = {"node_name": node, "cluster_name": cluster_name}
             self.report_metric("custom.proxmox.node.subscription.active", active, dims)
         except Exception:
@@ -300,17 +328,11 @@ class ProxmoxExtension(Extension):
                     continue
                 disk_name = dev.replace("/dev/", "")
                 dims = {"disk_dev": disk_name, "node_name": node, "cluster_name": cluster_name}
-
                 self.report_metric("custom.proxmox.node.disk.device.size", disk.get("size", 0), dims)
-
-                # Basic health from disk list
                 health = disk.get("health", "")
                 health_val = 1 if health.upper() == "PASSED" else (0 if health.upper() == "FAILED" else -1)
                 self.report_metric("custom.proxmox.node.disk.device.smart", health_val, dims)
-
-                # Detailed SMART attributes
                 self._collect_disk_smart(client, node, dev, disk_name, cluster_name)
-
         except Exception:
             logger.exception("Error collecting disk list for node %s", node)
 
@@ -318,8 +340,6 @@ class ProxmoxExtension(Extension):
         try:
             smart = client.get_disk_smart(node, dev)
             dims = {"disk_dev": disk_name, "node_name": node, "cluster_name": cluster_name}
-
-            # Key SMART attributes by ID
             SMART_IDS = {
                 5:   "reallocated_sectors",
                 9:   "power_on_hours",
@@ -351,50 +371,100 @@ class ProxmoxExtension(Extension):
                 status = client.get_vm_status(node, vmid)
                 dims = {"vmid": str(vmid), "vm_name": name, "node_name": node, "cluster_name": cluster_name}
 
-                # Status
                 vm_running = 1 if status.get("status") == "running" else 0
                 self.report_metric("custom.proxmox.vm.status", vm_running, dims)
 
-                # CPU
+                # CPU (live)
                 self.report_metric("custom.proxmox.vm.cpu.usage", status.get("cpu", 0) * 100, dims)
                 self.report_metric("custom.proxmox.vm.cpu.count", status.get("cpus", 0), dims)
 
-                # Memory
+                # Memory (live)
                 self.report_metric("custom.proxmox.vm.memory.used", status.get("mem", 0), dims)
                 self.report_metric("custom.proxmox.vm.memory.total", status.get("maxmem", 0), dims)
 
-                # Balloon
+                # Balloon (live)
                 balloon = status.get("ballooninfo", {})
                 if balloon:
                     self.report_metric("custom.proxmox.vm.balloon.current", balloon.get("current_allocated", 0), dims)
                     self.report_metric("custom.proxmox.vm.balloon.target", balloon.get("target_allocated", 0), dims)
 
-                # Disk I/O
+                # Disk I/O (live)
                 self.report_metric("custom.proxmox.vm.disk.read", status.get("diskread", 0), dims)
                 self.report_metric("custom.proxmox.vm.disk.write", status.get("diskwrite", 0), dims)
                 self.report_metric("custom.proxmox.vm.disk.size", status.get("maxdisk", 0), dims)
 
-                # Network
+                # Network (live)
                 self.report_metric("custom.proxmox.vm.network.in", status.get("netin", 0), dims)
                 self.report_metric("custom.proxmox.vm.network.out", status.get("netout", 0), dims)
 
-                # Uptime
                 self.report_metric("custom.proxmox.vm.uptime", status.get("uptime", 0), dims)
+
+                # Config — configured limits (not live usage)
+                self._collect_vm_config(client, node, vmid, name, cluster_name)
+
+                # RRD — disk usage + pressure metrics
+                if vm_running:
+                    self._collect_vm_rrddata(client, node, vmid, name, cluster_name)
 
                 # Snapshots
                 self._collect_vm_snapshots(client, node, vmid, name, cluster_name)
 
-                # QEMU guest agent (only for running VMs)
+                # Guest agent
                 if vm_running and status.get("agent", 0):
                     self._collect_vm_agent(client, node, vmid, name, cluster_name)
 
             except Exception:
                 logger.exception("Error collecting metrics for VM %s on %s", vmid, node)
 
+    def _collect_vm_config(self, client: ProxmoxClient, node: str, vmid: int, vm_name: str, cluster_name: str):
+        try:
+            cfg = client.get_vm_config(node, vmid)
+            dims = {"vmid": str(vmid), "vm_name": vm_name, "node_name": node, "cluster_name": cluster_name}
+
+            self.report_metric("custom.proxmox.vm.config.cores", cfg.get("cores", 1), dims)
+            self.report_metric("custom.proxmox.vm.config.sockets", cfg.get("sockets", 1), dims)
+            self.report_metric("custom.proxmox.vm.config.memory_mib", cfg.get("memory", 0), dims)
+            self.report_metric("custom.proxmox.vm.config.balloon_mib", cfg.get("balloon", 0), dims)
+            self.report_metric("custom.proxmox.vm.config.cpulimit", cfg.get("cpulimit", 0), dims)
+            self.report_metric("custom.proxmox.vm.config.cpuunits", cfg.get("cpuunits", 1024), dims)
+            self.report_metric("custom.proxmox.vm.config.onboot", 1 if cfg.get("onboot", 0) else 0, dims)
+        except Exception:
+            logger.debug("Could not collect config for VM %s on %s", vmid, node)
+
+    def _collect_vm_rrddata(self, client: ProxmoxClient, node: str, vmid: int, vm_name: str, cluster_name: str):
+        try:
+            rrd = client.get_vm_rrddata(node, vmid)
+            if not rrd:
+                return
+            dims = {"vmid": str(vmid), "vm_name": vm_name, "node_name": node, "cluster_name": cluster_name}
+
+            # Actual disk usage — not available from status/current
+            disk_used = _latest(rrd, "disk")
+            if disk_used is not None:
+                self.report_metric("custom.proxmox.vm.disk.used", disk_used, dims)
+
+            # Host memory used by guest (balloon perspective)
+            memhost = _latest(rrd, "memhost")
+            if memhost is not None:
+                self.report_metric("custom.proxmox.vm.memory.host", memhost, dims)
+
+            # PSI pressure metrics
+            for field, key in (
+                ("pressurecpusome",    "custom.proxmox.vm.pressure.cpu.some"),
+                ("pressurecpufull",    "custom.proxmox.vm.pressure.cpu.full"),
+                ("pressureiosome",     "custom.proxmox.vm.pressure.io.some"),
+                ("pressurememorysome", "custom.proxmox.vm.pressure.memory.some"),
+                ("pressurememoryfull", "custom.proxmox.vm.pressure.memory.full"),
+            ):
+                val = _latest(rrd, field)
+                if val is not None:
+                    self.report_metric(key, val * 100, dims)
+        except Exception:
+            logger.debug("Could not collect rrddata for VM %s on %s", vmid, node)
+
     def _collect_vm_snapshots(self, client: ProxmoxClient, node: str, vmid: int, vm_name: str, cluster_name: str):
         try:
             snaps = client.get_vm_snapshots(node, vmid)
-            # "current" is the live state sentinel, not a real snapshot
             real_snaps = [s for s in snaps if s.get("name") != "current"]
             dims = {"vmid": str(vmid), "vm_name": vm_name, "node_name": node, "cluster_name": cluster_name}
             self.report_metric("custom.proxmox.vm.snapshot.count", len(real_snaps), dims)
@@ -402,22 +472,17 @@ class ProxmoxExtension(Extension):
             logger.debug("Could not collect snapshots for VM %s on %s", vmid, node)
 
     def _collect_vm_agent(self, client: ProxmoxClient, node: str, vmid: int, vm_name: str, cluster_name: str):
-        # In-guest filesystem usage
         try:
             for fs in client.get_vm_agent_fsinfo(node, vmid):
                 mp = fs.get("mountpoint", "")
                 if not mp:
                     continue
-                fdims = {
-                    "vmid": str(vmid), "vm_name": vm_name,
-                    "mountpoint": mp, "node_name": node, "cluster_name": cluster_name,
-                }
+                fdims = {"vmid": str(vmid), "vm_name": vm_name, "mountpoint": mp, "node_name": node, "cluster_name": cluster_name}
                 self.report_metric("custom.proxmox.vm.agent.disk.used", fs.get("used-bytes", 0), fdims)
                 self.report_metric("custom.proxmox.vm.agent.disk.total", fs.get("total-bytes", 0), fdims)
         except Exception:
             logger.debug("Guest agent fsinfo not available for VM %s", vmid)
 
-        # In-guest per-interface network stats
         try:
             for iface in client.get_vm_agent_network(node, vmid):
                 iface_name = iface.get("name", "")
@@ -426,10 +491,7 @@ class ProxmoxExtension(Extension):
                 stats = iface.get("statistics", {})
                 if not stats:
                     continue
-                idims = {
-                    "vmid": str(vmid), "vm_name": vm_name,
-                    "iface": iface_name, "node_name": node, "cluster_name": cluster_name,
-                }
+                idims = {"vmid": str(vmid), "vm_name": vm_name, "iface": iface_name, "node_name": node, "cluster_name": cluster_name}
                 self.report_metric("custom.proxmox.vm.agent.net.rx_bytes", stats.get("rx-bytes", 0), idims)
                 self.report_metric("custom.proxmox.vm.agent.net.tx_bytes", stats.get("tx-bytes", 0), idims)
                 self.report_metric("custom.proxmox.vm.agent.net.rx_errors", stats.get("rx-errs", 0), idims)
@@ -451,35 +513,85 @@ class ProxmoxExtension(Extension):
                 status = client.get_container_status(node, vmid)
                 dims = {"vmid": str(vmid), "lxc_name": name, "node_name": node, "cluster_name": cluster_name}
 
-                # Status
-                self.report_metric("custom.proxmox.lxc.status", 1 if status.get("status") == "running" else 0, dims)
+                ct_running = 1 if status.get("status") == "running" else 0
+                self.report_metric("custom.proxmox.lxc.status", ct_running, dims)
 
-                # CPU
+                # CPU (live)
                 self.report_metric("custom.proxmox.lxc.cpu.usage", status.get("cpu", 0) * 100, dims)
                 self.report_metric("custom.proxmox.lxc.cpu.count", status.get("cpus", 0), dims)
 
-                # Memory
+                # Memory (live)
                 self.report_metric("custom.proxmox.lxc.memory.used", status.get("mem", 0), dims)
                 self.report_metric("custom.proxmox.lxc.memory.total", status.get("maxmem", 0), dims)
 
-                # Swap
+                # Swap (live)
                 self.report_metric("custom.proxmox.lxc.swap.used", status.get("swap", 0), dims)
                 self.report_metric("custom.proxmox.lxc.swap.total", status.get("maxswap", 0), dims)
 
-                # Disk I/O
+                # Disk I/O (live)
                 self.report_metric("custom.proxmox.lxc.disk.read", status.get("diskread", 0), dims)
                 self.report_metric("custom.proxmox.lxc.disk.write", status.get("diskwrite", 0), dims)
                 self.report_metric("custom.proxmox.lxc.disk.size", status.get("maxdisk", 0), dims)
 
-                # Network
+                # Network (live)
                 self.report_metric("custom.proxmox.lxc.network.in", status.get("netin", 0), dims)
                 self.report_metric("custom.proxmox.lxc.network.out", status.get("netout", 0), dims)
+
+                # Config — configured limits
+                self._collect_ct_config(client, node, vmid, name, cluster_name)
+
+                # RRD — disk usage + pressure
+                if ct_running:
+                    self._collect_ct_rrddata(client, node, vmid, name, cluster_name)
 
                 # Snapshots
                 self._collect_ct_snapshots(client, node, vmid, name, cluster_name)
 
             except Exception:
                 logger.exception("Error collecting metrics for LXC %s on %s", vmid, node)
+
+    def _collect_ct_config(self, client: ProxmoxClient, node: str, vmid: int, lxc_name: str, cluster_name: str):
+        try:
+            cfg = client.get_container_config(node, vmid)
+            dims = {"vmid": str(vmid), "lxc_name": lxc_name, "node_name": node, "cluster_name": cluster_name}
+
+            self.report_metric("custom.proxmox.lxc.config.cores", cfg.get("cores", 1), dims)
+            self.report_metric("custom.proxmox.lxc.config.memory_mib", cfg.get("memory", 0), dims)
+            self.report_metric("custom.proxmox.lxc.config.swap_mib", cfg.get("swap", 0), dims)
+            self.report_metric("custom.proxmox.lxc.config.cpulimit", cfg.get("cpulimit", 0), dims)
+            self.report_metric("custom.proxmox.lxc.config.cpuunits", cfg.get("cpuunits", 1024), dims)
+            self.report_metric("custom.proxmox.lxc.config.onboot", 1 if cfg.get("onboot", 0) else 0, dims)
+            self.report_metric("custom.proxmox.lxc.config.unprivileged", 1 if cfg.get("unprivileged", 0) else 0, dims)
+        except Exception:
+            logger.debug("Could not collect config for LXC %s on %s", vmid, node)
+
+    def _collect_ct_rrddata(self, client: ProxmoxClient, node: str, vmid: int, lxc_name: str, cluster_name: str):
+        try:
+            rrd = client.get_container_rrddata(node, vmid)
+            if not rrd:
+                return
+            dims = {"vmid": str(vmid), "lxc_name": lxc_name, "node_name": node, "cluster_name": cluster_name}
+
+            disk_used = _latest(rrd, "disk")
+            if disk_used is not None:
+                self.report_metric("custom.proxmox.lxc.disk.used", disk_used, dims)
+
+            memhost = _latest(rrd, "memhost")
+            if memhost is not None:
+                self.report_metric("custom.proxmox.lxc.memory.host", memhost, dims)
+
+            for field, key in (
+                ("pressurecpusome",    "custom.proxmox.lxc.pressure.cpu.some"),
+                ("pressurecpufull",    "custom.proxmox.lxc.pressure.cpu.full"),
+                ("pressureiosome",     "custom.proxmox.lxc.pressure.io.some"),
+                ("pressurememorysome", "custom.proxmox.lxc.pressure.memory.some"),
+                ("pressurememoryfull", "custom.proxmox.lxc.pressure.memory.full"),
+            ):
+                val = _latest(rrd, field)
+                if val is not None:
+                    self.report_metric(key, val * 100, dims)
+        except Exception:
+            logger.debug("Could not collect rrddata for LXC %s on %s", vmid, node)
 
     def _collect_ct_snapshots(self, client: ProxmoxClient, node: str, vmid: int, lxc_name: str, cluster_name: str):
         try:
@@ -505,13 +617,12 @@ class ProxmoxExtension(Extension):
             self.report_metric("custom.proxmox.storage.enabled", 1 if storage.get("enabled", 1) else 0, dims)
             self.report_metric("custom.proxmox.storage.active", 1 if storage.get("active", 0) else 0, dims)
 
-            # Backup content count
             self._collect_storage_backups(client, node, name, cluster_name)
 
     def _collect_storage_backups(self, client: ProxmoxClient, node: str, storage: str, cluster_name: str):
         try:
             content = client.get_storage_content(node, storage)
-            backup_count = sum(1 for c in content if c.get("content", c.get("format", "")) in ("backup", "vztmpl") or "backup" in str(c.get("volid", "")))
+            backup_count = sum(1 for c in content if "backup" in str(c.get("volid", "")) or c.get("content") == "backup")
             dims = {"storage_name": storage, "node_name": node, "cluster_name": cluster_name}
             self.report_metric("custom.proxmox.storage.backup_count", backup_count, dims)
         except Exception:
